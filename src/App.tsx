@@ -13,6 +13,7 @@ export function App() {
     useExistingGuide,
     closeChapter,
     clearError,
+    markPermissionLost,
   } = useChapterFolder();
 
   return (
@@ -41,31 +42,37 @@ export function App() {
       {state.status === "ready" && (
         <ChapterView
           chapter={state.chapter}
+          chapterHandle={state.handle}
           isLoading={false}
           mode="ready"
           notice={state.notice}
           onCloseChapter={closeChapter}
           onCreateGuide={createGuideInCurrentFolder}
+          onPermissionLost={markPermissionLost}
           onUseExistingGuide={useExistingGuide}
         />
       )}
       {state.status === "missing-guide" && (
         <ChapterView
           chapter={state.chapter}
+          chapterHandle={state.handle}
           isLoading={false}
           mode="missing-guide"
           onCloseChapter={closeChapter}
           onCreateGuide={createGuideInCurrentFolder}
+          onPermissionLost={markPermissionLost}
           onUseExistingGuide={useExistingGuide}
         />
       )}
       {state.status === "already-exists" && (
         <ChapterView
           chapter={state.chapter}
+          chapterHandle={state.handle}
           isLoading={false}
           mode="already-exists"
           onCloseChapter={closeChapter}
           onCreateGuide={createGuideInCurrentFolder}
+          onPermissionLost={markPermissionLost}
           onUseExistingGuide={useExistingGuide}
         />
       )}

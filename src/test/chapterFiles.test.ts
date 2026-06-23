@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   createBlankChapter,
   loadChapterFolder,
+  readGuideMdx,
+  writeGuideMdx,
 } from "../lib/fs/chapterFiles";
 import { GUIDE_MDX, IMAGES_DIR } from "../lib/fs/constants";
 
@@ -50,6 +52,29 @@ describe("chapterFiles", () => {
 
     expect(result.kind).toBe("already-exists");
     expect(directory.files.get(GUIDE_MDX)?.content).toBe("# Keep me");
+  });
+
+  it("reads guide.mdx content", async () => {
+    const directory = new FakeDirectoryHandle("existing-chapter");
+    directory.files.set(GUIDE_MDX, new FakeFileHandle(GUIDE_MDX, "# Guide"));
+
+    await expect(readGuideMdx(directory.asDirectoryHandle())).resolves.toBe(
+      "# Guide",
+    );
+  });
+
+  it("writes guide.mdx content and returns refreshed metadata", async () => {
+    const directory = new FakeDirectoryHandle("existing-chapter");
+    directory.files.set(GUIDE_MDX, new FakeFileHandle(GUIDE_MDX, "# Old"));
+    directory.directories.set(IMAGES_DIR, new FakeDirectoryHandle(IMAGES_DIR));
+
+    const status = await writeGuideMdx(directory.asDirectoryHandle(), "# New");
+
+    expect(directory.files.get(GUIDE_MDX)?.content).toBe("# New");
+    expect(status.guideMdxExists).toBe(true);
+    expect(status.imagesDirExists).toBe(true);
+    expect(status.guideMdxSize).toBe(5);
+    expect(status.guideMdxLastModified).toBe(2);
   });
 });
 

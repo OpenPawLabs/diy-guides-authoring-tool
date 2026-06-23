@@ -1,26 +1,45 @@
 import { Alert, Button, Card } from "@heroui/react";
+import { useCallback } from "react";
+import { GuidePreview } from "../components/GuidePreview";
 import { ChapterStatusCard } from "../components/ChapterStatusCard";
+import { useGuideDocument } from "../hooks/useGuideDocument";
 import type { ChapterStatus } from "../lib/fs/types";
 
 interface ChapterViewProps {
   mode: "ready" | "missing-guide" | "already-exists";
+  chapterHandle: FileSystemDirectoryHandle;
   chapter: ChapterStatus;
   notice?: string;
   isLoading: boolean;
   onCreateGuide: () => void;
   onUseExistingGuide: () => void;
-  onCloseChapter: () => void;
+  onCloseChapter: () => void | Promise<void>;
+  onPermissionLost: (folderName?: string) => void;
 }
 
 export function ChapterView({
   mode,
+  chapterHandle,
   chapter,
   notice,
   isLoading,
   onCreateGuide,
   onUseExistingGuide,
   onCloseChapter,
+  onPermissionLost,
 }: ChapterViewProps) {
+  if (mode === "ready") {
+    return (
+      <ReadyChapterEditor
+        chapter={chapter as ChapterStatus & { guideMdxExists: true }}
+        chapterHandle={chapterHandle}
+        notice={notice}
+        onCloseChapter={onCloseChapter}
+        onPermissionLost={onPermissionLost}
+      />
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-6 py-10">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -90,18 +109,6 @@ export function ChapterView({
       )}
 
       <ChapterStatusCard chapter={chapter} />
-
-      {mode === "ready" && (
-        <Card>
-          <Card.Header>
-            <Card.Title>Editing and preview come next</Card.Title>
-            <Card.Description>
-              Phase 2 will load `guide.mdx`, render a live MDX preview, and save
-              edits back to this folder.
-            </Card.Description>
-          </Card.Header>
-        </Card>
-      )}
     </main>
   );
 }
@@ -116,4 +123,169 @@ function headingForMode(mode: ChapterViewProps["mode"]): string {
   }
 
   return "Chapter folder ready";
+}
+
+interface ReadyChapterEditorProps {
+  chapterHandle: FileSystemDirectoryHandle;
+  chapter: ChapterStatus & { guideMdxExists: true };
+  notice?: string;
+  onCloseChapter: () => void | Promise<void>;
+  onPermissionLost: (folderName?: string) => void;
+}
+
+function ReadyChapterEditor({
+  chapterHandle,
+  chapter,
+  notice,
+  onCloseChapter,
+  onPermissionLost,
+}: ReadyChapterEditorProps) {
+  const document = useGuideDocument({
+    directory: chapterHandle,
+    initialChapter: chapter,
+    onPermissionLost,
+  });
+
+  const handleCloseChapter = useCallback(() => {
+    if (
+      document.isDirty &&
+      !window.confirm("You have unsaved changes. Close this chapter anyway?")
+    ) {
+      return;
+    }
+
+    void onCloseChapter();
+  }, [document.isDirty, onCloseChapter]);
+
+  return (
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-6 py-10">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+            MDX editor
+          </p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-default-950">
+            {chapter.folderName}
+          </h1>
+          <p className="mt-2 max-w-2xl text-default-600">
+            Edit guide.mdx directly, preview the guide with the OpenPaw guide UI,
+            and save changes back to this folder.
+          </p>
+        </div>
+        <Button variant="outline" onPress={handleCloseChapter}>
+          Close chapter
+        </Button>
+      </header>
+
+      {notice && (
+        <Alert className="border border-success-300 bg-success-50">
+          <Alert.Content>
+            <Alert.Title>Folder ready</Alert.Title>
+            <Alert.Description>{notice}</Alert.Description>
+          </Alert.Content>
+        </Alert>
+      )}
+
+      {document.state.status === "loading" && (
+        <Card>
+          <Card.Content className="p-6 text-default-600">
+            Loading guide.mdx from disk...
+          </Card.Content>
+        </Card>
+      )}
+
+      {document.state.status === "error" && (
+        <>
+          <ChapterStatusCard chapter={document.state.chapter} />
+          <Alert className="border border-danger-300 bg-danger-50">
+            <Alert.Content>
+              <Alert.Title>Could not load guide.mdx</Alert.Title>
+              <Alert.Description>{document.state.message}</Alert.Description>
+              <div className="mt-4">
+                <Button variant="primary" onPress={() => void document.load()}>
+                  Try again
+                </Button>
+              </div>
+            </Alert.Content>
+          </Alert>
+        </>
+      )}
+
+      {document.state.status === "ready" && (
+        <>
+          <ChapterStatusCard chapter={document.state.chapter} />
+
+          <Card>
+            <Card.Header className="flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <Card.Title>guide.mdx</Card.Title>
+                <Card.Description>
+                  Changes stay local until you save, then appear as a normal git
+                  diff in the selected chapter folder.
+                </Card.Description>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span
+                  className={`rounded-full px-3 py-1 text-sm font-medium ${
+                    document.isDirty
+                      ? "bg-warning-100 text-warning-700"
+                      : "bg-success-100 text-success-700"
+                  }`}
+                >
+                  {document.isDirty ? "Unsaved changes" : "Saved"}
+                </span>
+                <Button
+                  isDisabled={!document.isDirty || document.state.isSaving}
+                  variant="primary"
+                  onPress={() => void document.save()}
+                >
+                  {document.state.isSaving ? "Saving..." : "Save guide.mdx"}
+                </Button>
+              </div>
+            </Card.Header>
+            <Card.Content className="space-y-4">
+              {document.state.saveError && (
+                <Alert className="border border-danger-300 bg-danger-50">
+                  <Alert.Content>
+                    <Alert.Title>Save failed</Alert.Title>
+                    <Alert.Description>{document.state.saveError}</Alert.Description>
+                  </Alert.Content>
+                </Alert>
+              )}
+
+              <div className="grid gap-5 lg:grid-cols-2">
+                <section className="flex min-h-[36rem] flex-col gap-2">
+                  <label
+                    className="text-sm font-semibold text-default-700"
+                    htmlFor="guide-mdx-source"
+                  >
+                    MDX source
+                  </label>
+                  <textarea
+                    className="min-h-0 flex-1 resize-y rounded-xl border border-default-300 bg-white p-4 font-mono text-sm leading-6 text-default-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary-200"
+                    id="guide-mdx-source"
+                    spellCheck={false}
+                    value={document.state.source}
+                    onChange={(event) => document.setSource(event.target.value)}
+                  />
+                </section>
+
+                <section className="flex min-h-[36rem] flex-col gap-2">
+                  <h2 className="text-sm font-semibold text-default-700">
+                    Live preview
+                  </h2>
+                  <div className="min-h-0 flex-1 overflow-auto rounded-xl bg-default-50 p-3">
+                    <GuidePreview
+                      directory={chapterHandle}
+                      source={document.state.source}
+                    />
+                  </div>
+                </section>
+              </div>
+            </Card.Content>
+          </Card>
+        </>
+      )}
+    </main>
+  );
 }

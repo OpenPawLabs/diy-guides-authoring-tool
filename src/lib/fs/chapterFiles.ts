@@ -66,6 +66,29 @@ export async function createBlankChapter(
   };
 }
 
+export async function readGuideMdx(
+  directory: FileSystemDirectoryHandle,
+): Promise<string> {
+  await ensureReadWritePermission(directory);
+
+  const guideFile = await directory.getFileHandle(GUIDE_MDX);
+  return await (await guideFile.getFile()).text();
+}
+
+export async function writeGuideMdx(
+  directory: FileSystemDirectoryHandle,
+  content: string,
+): Promise<ChapterStatus & { guideMdxExists: true }> {
+  await ensureReadWritePermission(directory);
+
+  const guideFile = await directory.getFileHandle(GUIDE_MDX);
+  const writable = await guideFile.createWritable();
+  await writable.write(content);
+  await writable.close();
+
+  return await getGuideFileStatus(directory, guideFile);
+}
+
 export async function ensureImagesDirectory(
   directory: FileSystemDirectoryHandle,
 ): Promise<FileSystemDirectoryHandle> {

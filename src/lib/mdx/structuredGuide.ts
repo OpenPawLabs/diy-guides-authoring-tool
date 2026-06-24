@@ -1,6 +1,7 @@
 import { unified } from "unified";
 import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
+import type { MediaAnnotation } from "@openpawlabs/diy-guides-ui";
 
 export const guideDifficulties = ["easy", "moderate", "difficult"] as const;
 export const calloutTypes = ["note", "info", "tip", "caution", "danger"] as const;
@@ -78,7 +79,13 @@ export interface StepDraft {
 export interface StepMediaDraft {
   id: string;
   src: string;
+  /** Overlay markers, positioned by percentage of the visible 4:3 frame. */
+  annotations?: MediaAnnotation[];
 }
+
+/** Annotation types the structured editor can round-trip through MDX. */
+export const annotationTypes = ["point", "circle", "rectangle"] as const;
+export type AnnotationType = (typeof annotationTypes)[number];
 
 export interface BulletDraft {
   id: string;
@@ -139,6 +146,25 @@ interface MdxAttribute {
 interface MdxExpression {
   type?: string;
   value?: string;
+  data?: { estree?: EstreeProgram };
+}
+
+interface EstreeProgram {
+  body?: EstreeNode[];
+}
+
+/** Minimal ESTree shape — only the literal node kinds annotations may contain. */
+interface EstreeNode {
+  type: string;
+  value?: unknown;
+  name?: string;
+  operator?: string;
+  computed?: boolean;
+  elements?: (EstreeNode | null)[];
+  properties?: EstreeNode[];
+  key?: EstreeNode;
+  argument?: EstreeNode;
+  expression?: EstreeNode;
 }
 
 export function parseStructuredGuide(source: string): StructuredGuideParseResult {
@@ -390,17 +416,20 @@ function parseSteps(
 
     const stepMedia = figures.map((figure, figureIndex) => {
       const unsupportedFigureAttrs = attributeNames(figure).filter(
-        (name) => name !== "src",
+        (name) => name !== "src" && name !== "annotations",
       );
       if (unsupportedFigureAttrs.length > 0) {
         throw new Error(
-          `MediaFigure has unsupported attributes: ${unsupportedFigureAttrs.join(", ")}. Use Raw MDX for annotations and display regions.`,
+          `MediaFigure has unsupported attributes: ${unsupportedFigureAttrs.join(", ")}. Use Raw MDX for display regions.`,
         );
       }
 
+      const prefix = `step-${index + 1}-media-${figureIndex + 1}`;
+      const annotations = parseAnnotations(figure, prefix);
       return {
-        id: `step-${index + 1}-media-${figureIndex + 1}`,
+        id: prefix,
         src: stringAttribute(figure, "src") ?? "",
+        ...(annotations.length > 0 ? { annotations } : {}),
       };
     });
 
@@ -420,6 +449,118 @@ function parseSteps(
       bullets: parsedBullets,
     };
   });
+}
+
+/** Read a `MediaFigure` `annotations={[…]}` attribute as literal annotation data. */
+function parseAnnotations(figure: MdxNode, idPrefix: string): MediaAnnotation[] {
+  const attr = figure.attributes?.find((candidate) => candidate.name === "annotations");
+  if (!attr) {
+    return [];
+  }
+
+  const estree = typeof attr.value === "object" ? attr.value?.data?.estree : undefined;
+  const statement = estree?.body?.[0];
+  if (!statement || statement.type !== "ExpressionStatement" || !statement.expression) {
+    throw new Error("MediaFigure annotations must be a literal array. Use Raw MDX.");
+  }
+
+  const value = evaluateLiteral(statement.expression);
+  if (!Array.isArray(value)) {
+    throw new Error("MediaFigure annotations must be a literal array. Use Raw MDX.");
+  }
+
+  return value.map((item, index) =>
+    normalizeAnnotation(item, `${idPrefix}-annotation-${index + 1}`),
+  );
+}
+
+/** Statically evaluate an ESTree node, allowing only JSON-like literal syntax. */
+function evaluateLiteral(node: EstreeNode): unknown {
+  switch (node.type) {
+    case "ArrayExpression":
+      return (node.elements ?? []).map((element) => {
+        if (!element) {
+          throw new Error("Sparse arrays are not supported in annotations. Use Raw MDX.");
+        }
+        return evaluateLiteral(element);
+      });
+    case "ObjectExpression":
+      return Object.fromEntries(
+        (node.properties ?? []).map((property) => {
+          const key = property.key;
+          if (property.type !== "Property" || property.computed || !key) {
+            throw new Error("Only plain object properties are supported in annotations. Use Raw MDX.");
+          }
+          const name =
+            key.type === "Identifier"
+              ? key.name
+              : key.type === "Literal"
+                ? String(key.value)
+                : undefined;
+          if (name == null) {
+            throw new Error("Unsupported object key in annotations. Use Raw MDX.");
+          }
+          return [name, evaluateLiteral(property.value as EstreeNode)];
+        }),
+      );
+    case "Literal":
+      return node.value;
+    case "UnaryExpression":
+      if (node.operator === "-" && node.argument) {
+        const argument = evaluateLiteral(node.argument);
+        if (typeof argument === "number") {
+          return -argument;
+        }
+      }
+      throw new Error("Unsupported expression in annotations. Use Raw MDX.");
+    default:
+      throw new Error(`Unsupported expression (${node.type}) in annotations. Use Raw MDX.`);
+  }
+}
+
+/** Validate a decoded literal against the known annotation shapes. */
+function normalizeAnnotation(value: unknown, id: string): MediaAnnotation {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Each MediaFigure annotation must be an object. Use Raw MDX.");
+  }
+
+  const data = value as Record<string, unknown>;
+  const type = data.type ?? "point";
+  if (type !== "point" && type !== "circle" && type !== "rectangle") {
+    throw new Error(`Unsupported annotation type "${String(type)}". Use Raw MDX.`);
+  }
+  if (data.color !== undefined && !guideColors.includes(data.color as GuideColor)) {
+    throw new Error(`Unsupported annotation color "${String(data.color)}". Use Raw MDX.`);
+  }
+
+  const num = (key: string): number => {
+    const raw = data[key];
+    if (typeof raw !== "number" || !Number.isFinite(raw)) {
+      throw new Error(`Annotation is missing a numeric "${key}". Use Raw MDX.`);
+    }
+    return raw;
+  };
+  const shared = {
+    id,
+    ...(typeof data.color === "string" ? { color: data.color as GuideColor } : {}),
+    ...(typeof data.title === "string" ? { title: data.title } : {}),
+  };
+
+  if (type === "circle") {
+    return { type, x: num("x"), y: num("y"), radius: num("radius"), ...shared };
+  }
+  if (type === "rectangle") {
+    return { type, x1: num("x1"), y1: num("y1"), x2: num("x2"), y2: num("y2"), ...shared };
+  }
+  return {
+    type,
+    x: num("x"),
+    y: num("y"),
+    ...(typeof data.label === "string" || typeof data.label === "number"
+      ? { label: data.label }
+      : {}),
+    ...shared,
+  };
 }
 
 function parseBullet(
@@ -599,11 +740,61 @@ function serializeStepMedia(media: StepMediaDraft[]): string {
 
   return [
     "        <GuideStep.Media>",
-    media
-      .map((item) => `          <MediaFigure src="${escapeAttribute(item.src)}" />`)
-      .join("\n"),
+    media.map(serializeFigure).join("\n"),
     "        </GuideStep.Media>",
   ].join("\n");
+}
+
+function serializeFigure(item: StepMediaDraft): string {
+  const src = escapeAttribute(item.src);
+  if (!item.annotations || item.annotations.length === 0) {
+    return `          <MediaFigure src="${src}" />`;
+  }
+
+  return [
+    "          <MediaFigure",
+    `            src="${src}"`,
+    "            annotations={[",
+    item.annotations
+      .map((annotation) => `              ${serializeAnnotation(annotation)},`)
+      .join("\n"),
+    "            ]}",
+    "          />",
+  ].join("\n");
+}
+
+function serializeAnnotation(annotation: MediaAnnotation): string {
+  const round = (value: number) => Math.round(value * 100) / 100;
+  const parts = [`type: ${JSON.stringify(annotation.type ?? "point")}`];
+
+  if (annotation.type === "circle") {
+    parts.push(
+      `x: ${round(annotation.x)}`,
+      `y: ${round(annotation.y)}`,
+      `radius: ${round(annotation.radius)}`,
+    );
+  } else if (annotation.type === "rectangle") {
+    parts.push(
+      `x1: ${round(annotation.x1)}`,
+      `y1: ${round(annotation.y1)}`,
+      `x2: ${round(annotation.x2)}`,
+      `y2: ${round(annotation.y2)}`,
+    );
+  } else {
+    parts.push(`x: ${round(annotation.x)}`, `y: ${round(annotation.y)}`);
+    if (annotation.label != null && annotation.label !== "") {
+      parts.push(`label: ${JSON.stringify(annotation.label)}`);
+    }
+  }
+
+  if (annotation.color) {
+    parts.push(`color: ${JSON.stringify(annotation.color)}`);
+  }
+  if (annotation.title) {
+    parts.push(`title: ${JSON.stringify(annotation.title)}`);
+  }
+
+  return `{ ${parts.join(", ")} }`;
 }
 
 function serializeBullet(bullet: BulletDraft): string {
@@ -818,7 +1009,7 @@ function escapeAttribute(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
-function createDraftId(prefix: string): string {
+export function createDraftId(prefix: string): string {
   if ("crypto" in globalThis && "randomUUID" in globalThis.crypto) {
     return `${prefix}-${globalThis.crypto.randomUUID()}`;
   }

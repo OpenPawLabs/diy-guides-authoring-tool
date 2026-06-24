@@ -17,6 +17,7 @@ import {
   type LinkItemDraft,
   type StepDraft,
 } from "../../lib/mdx/structuredGuide";
+import { AnnotationEditorModal } from "./AnnotationEditorModal";
 import { BulletMarkerMenu } from "./BulletMarkerMenu";
 import { InlineEditable } from "./InlineEditable";
 import { LinkItemMenu } from "./LinkItemMenu";
@@ -28,7 +29,6 @@ interface GuideStepEditorProps {
   onStepChange: (mutate: (step: StepDraft) => void) => void;
 }
 
-type PendingUpload = "add" | { replace: number };
 type PendingDownload = { bulletId: string; index: number };
 
 const MENU_WIDTH = 224;
@@ -70,6 +70,7 @@ export function GuideStepEditor({
   onStepChange,
 }: GuideStepEditorProps) {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [annotatingIndex, setAnnotatingIndex] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ bulletId: string; x: number; y: number } | null>(
     null,
   );
@@ -82,7 +83,6 @@ export function GuideStepEditor({
 
   const pointerRef = useRef({ x: 0, y: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pendingRef = useRef<PendingUpload | null>(null);
   const downloadInputRef = useRef<HTMLInputElement>(null);
   const downloadPendingRef = useRef<PendingDownload | null>(null);
 
@@ -95,42 +95,25 @@ export function GuideStepEditor({
     ? Math.min(activeMediaIndex, step.media.length - 1)
     : 0;
 
-  const pickImages = (action: PendingUpload) => {
-    pendingRef.current = action;
-    fileInputRef.current?.click();
-  };
-
-  const handleFiles = async (files: File[]) => {
-    const action = pendingRef.current;
-    pendingRef.current = null;
-    if (!action || files.length === 0) {
+  const handleAddFiles = async (files: File[]) => {
+    if (files.length === 0) {
       return;
     }
 
     try {
-      if (action === "add") {
-        const room = Math.max(MAX_STEP_MEDIA - step.media.length, 0);
-        const srcs: string[] = [];
-        for (const file of files.slice(0, room)) {
-          srcs.push(await writeImageFile(directory, file));
-        }
-        onStepChange((draft) => {
-          for (const src of srcs) {
-            if (draft.media.length < MAX_STEP_MEDIA) {
-              draft.media.push(createStepMedia(src));
-            }
-          }
-        });
-        setActiveMediaIndex(step.media.length);
-      } else {
-        const src = await writeImageFile(directory, files[0]);
-        onStepChange((draft) => {
-          const target = draft.media[action.replace];
-          if (target) {
-            target.src = src;
-          }
-        });
+      const room = Math.max(MAX_STEP_MEDIA - step.media.length, 0);
+      const srcs: string[] = [];
+      for (const file of files.slice(0, room)) {
+        srcs.push(await writeImageFile(directory, file));
       }
+      onStepChange((draft) => {
+        for (const src of srcs) {
+          if (draft.media.length < MAX_STEP_MEDIA) {
+            draft.media.push(createStepMedia(src));
+          }
+        }
+      });
+      setActiveMediaIndex(step.media.length);
     } catch (error) {
       console.error("Failed to save image to the chapter folder.", error);
     }
@@ -139,8 +122,8 @@ export function GuideStepEditor({
   const mediaEditing: GuideStepMediaEditing = {
     activeIndex,
     onSelectImage: setActiveMediaIndex,
-    onAddImage: () => pickImages("add"),
-    onReplaceImage: (index) => pickImages({ replace: index }),
+    onAddImage: () => fileInputRef.current?.click(),
+    onEditAnnotations: (index) => setAnnotatingIndex(index),
     onRemoveImage: (index) =>
       onStepChange((draft) => {
         draft.media.splice(index, 1);
@@ -235,6 +218,9 @@ export function GuideStepEditor({
     }
   };
 
+  const annotatingMedia =
+    annotatingIndex !== null ? step.media[annotatingIndex] : undefined;
+
   const menuBullet = menu
     ? step.bullets.find((item) => item.id === menu.bulletId)
     : undefined;
@@ -260,7 +246,7 @@ export function GuideStepEditor({
         onChange={(event) => {
           const files = Array.from(event.currentTarget.files ?? []);
           event.currentTarget.value = "";
-          void handleFiles(files);
+          void handleAddFiles(files);
         }}
       />
       <input
@@ -289,7 +275,11 @@ export function GuideStepEditor({
       >
         <GuideStep.Media>
           {step.media.map((item, index) => (
-            <MediaFigure key={item.id} src={resolvedSrcs[index]} />
+            <MediaFigure
+              key={item.id}
+              src={resolvedSrcs[index]}
+              annotations={item.annotations}
+            />
           ))}
         </GuideStep.Media>
         <GuideStep.Bullets
@@ -408,6 +398,22 @@ export function GuideStepEditor({
           </div>
         </div>
       )}
+
+      <AnnotationEditorModal
+        isOpen={annotatingIndex !== null}
+        src={annotatingIndex !== null ? (resolvedSrcs[annotatingIndex] ?? "") : ""}
+        annotations={annotatingMedia?.annotations ?? []}
+        onClose={() => setAnnotatingIndex(null)}
+        onChange={(recipe) =>
+          onStepChange((draft) => {
+            if (annotatingIndex === null) return;
+            const target = draft.media[annotatingIndex];
+            if (target) {
+              recipe((target.annotations ??= []));
+            }
+          })
+        }
+      />
     </div>
   );
 }

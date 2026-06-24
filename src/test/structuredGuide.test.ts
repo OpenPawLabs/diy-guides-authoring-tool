@@ -229,15 +229,69 @@ ${blankGuideMdx}
     });
   });
 
-  it("routes MediaFigure annotations to raw MDX", () => {
+  it("round-trips MediaFigure annotations of every shape", async () => {
+    const parsed = parseStructuredGuide(blankGuideMdx);
+    expect(parsed.status).toBe("supported");
+    if (parsed.status !== "supported") {
+      return;
+    }
+
+    parsed.draft.steps[0].media = [
+      {
+        id: "m1",
+        src: "./images/one.jpg",
+        annotations: [
+          { id: "a1", type: "point", x: 25, y: 30, color: "RED", label: 1, title: "Pry point" },
+          { id: "a2", type: "circle", x: 60, y: 45, radius: 12, color: "ORANGE" },
+          { id: "a3", type: "rectangle", x1: 10, y1: 20, x2: 40, y2: 55, color: "LIGHT_BLUE" },
+        ],
+      },
+    ];
+
+    const source = serializeGuideLayout(parsed.draft);
+    expect(source).toContain("annotations={[");
+    expect(source).toContain(
+      '{ type: "point", x: 25, y: 30, label: 1, color: "RED", title: "Pry point" }',
+    );
+    await expect(compileGuideMdx(source)).resolves.toEqual({
+      Content: expect.any(Function),
+    });
+
+    const reparsed = parseStructuredGuide(source);
+    expect(reparsed.status).toBe("supported");
+    if (reparsed.status !== "supported") {
+      return;
+    }
+    expect(reparsed.draft.steps[0].media[0].annotations).toEqual([
+      expect.objectContaining({ type: "point", x: 25, y: 30, color: "RED", label: 1, title: "Pry point" }),
+      expect.objectContaining({ type: "circle", x: 60, y: 45, radius: 12, color: "ORANGE" }),
+      expect.objectContaining({ type: "rectangle", x1: 10, y1: 20, x2: 40, y2: 55, color: "LIGHT_BLUE" }),
+    ]);
+  });
+
+  it("treats an empty annotations array as supported with no markers", () => {
     const source = blankGuideMdx.replace(
       '<MediaFigure src="./images/placeholder.jpg" />',
       '<MediaFigure src="./images/placeholder.jpg" annotations={[]} />',
     );
 
+    const parsed = parseStructuredGuide(source);
+    expect(parsed.status).toBe("supported");
+    if (parsed.status !== "supported") {
+      return;
+    }
+    expect(parsed.draft.steps[0].media[0].annotations).toBeUndefined();
+  });
+
+  it("routes a non-literal annotations expression to raw MDX", () => {
+    const source = blankGuideMdx.replace(
+      '<MediaFigure src="./images/placeholder.jpg" />',
+      "<MediaFigure src=\"./images/placeholder.jpg\" annotations={buildAnnotations()} />",
+    );
+
     expect(parseStructuredGuide(source)).toMatchObject({
       status: "unsupported",
-      reason: expect.stringContaining("annotations"),
+      reason: expect.stringContaining("Raw MDX"),
     });
   });
 });

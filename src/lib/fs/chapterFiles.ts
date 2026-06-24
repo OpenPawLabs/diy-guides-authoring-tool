@@ -1,5 +1,6 @@
 import { blankGuideMdx } from "../templates/blankGuideMdx";
 import { GUIDE_MDX, IMAGES_DIR } from "./constants";
+import { sanitizeImageName, uniqueImageName } from "./imageNames";
 import { ensureReadWritePermission, isMissingEntryError } from "./permissions";
 import type { ChapterLoadResult, ChapterStatus, CreateChapterResult } from "./types";
 
@@ -87,6 +88,31 @@ export async function writeGuideMdx(
   await writable.close();
 
   return await getGuideFileStatus(directory, guideFile);
+}
+
+/**
+ * Write an uploaded image into the chapter's `images/` directory under a safe,
+ * de-duplicated name and return the relative MDX source path (`./images/<name>`).
+ */
+export async function writeImageFile(
+  directory: FileSystemDirectoryHandle,
+  file: File,
+): Promise<string> {
+  await ensureReadWritePermission(directory);
+  const images = await ensureImagesDirectory(directory);
+
+  const existing: string[] = [];
+  for await (const name of images.keys()) {
+    existing.push(name);
+  }
+
+  const fileName = uniqueImageName(sanitizeImageName(file.name), existing);
+  const handle = await images.getFileHandle(fileName, { create: true });
+  const writable = await handle.createWritable();
+  await writable.write(file);
+  await writable.close();
+
+  return `./${IMAGES_DIR}/${fileName}`;
 }
 
 export async function ensureImagesDirectory(

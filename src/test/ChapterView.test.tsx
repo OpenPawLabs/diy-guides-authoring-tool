@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ChapterView } from "../pages/ChapterView";
 import { GUIDE_MDX, IMAGES_DIR } from "../lib/fs/constants";
+import { blankGuideMdx } from "../lib/templates/blankGuideMdx";
 
 vi.mock("../components/GuidePreview", () => ({
   GuidePreview: ({ source }: { source: string }) => (
@@ -11,7 +12,7 @@ vi.mock("../components/GuidePreview", () => ({
 }));
 
 describe("ChapterView", () => {
-  it("loads, edits, and saves guide.mdx", async () => {
+  it("loads, edits, and saves guide.mdx through raw mode", async () => {
     const directory = readyDirectory("# Initial");
 
     render(
@@ -27,6 +28,8 @@ describe("ChapterView", () => {
       />,
     );
 
+    await userEvent.click(await screen.findByRole("button", { name: "Raw MDX" }));
+
     const editor = await screen.findByLabelText("MDX source");
     expect(editor).toHaveValue("# Initial");
 
@@ -40,6 +43,60 @@ describe("ChapterView", () => {
       expect(directory.files.get(GUIDE_MDX)?.content).toBe("# Edited");
       expect(screen.getByText("Saved")).toBeInTheDocument();
     });
+  });
+
+  it("edits and saves a structured guide", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+
+    render(
+      <ChapterView
+        chapter={chapterStatus(directory)}
+        chapterHandle={directory.asDirectoryHandle()}
+        isLoading={false}
+        mode="ready"
+        onCloseChapter={vi.fn()}
+        onCreateGuide={vi.fn()}
+        onPermissionLost={vi.fn()}
+        onUseExistingGuide={vi.fn()}
+      />,
+    );
+
+    const title = await screen.findByLabelText("Title");
+    fireEvent.change(title, { target: { value: "Edited Structured Guide" } });
+
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Save guide.mdx" }));
+
+    await waitFor(() => {
+      expect(directory.files.get(GUIDE_MDX)?.content).toContain(
+        'title="Edited Structured Guide"',
+      );
+      expect(screen.getByText("Saved")).toBeInTheDocument();
+    });
+  });
+
+  it("opens raw mode directly when structured editing cannot parse the document", async () => {
+    const directory = readyDirectory("# Initial");
+
+    render(
+      <ChapterView
+        chapter={chapterStatus(directory)}
+        chapterHandle={directory.asDirectoryHandle()}
+        isLoading={false}
+        mode="ready"
+        onCloseChapter={vi.fn()}
+        onCreateGuide={vi.fn()}
+        onPermissionLost={vi.fn()}
+        onUseExistingGuide={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByText("Structured editing is not available for this MDX"),
+    ).toBeInTheDocument();
+
+    expect(await screen.findByLabelText("MDX source")).toHaveValue("# Initial");
   });
 
   it("guards closing a chapter with unsaved changes", async () => {
@@ -60,6 +117,8 @@ describe("ChapterView", () => {
         onUseExistingGuide={vi.fn()}
       />,
     );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Raw MDX" }));
 
     fireEvent.change(await screen.findByLabelText("MDX source"), {
       target: { value: "# Unsaved" },

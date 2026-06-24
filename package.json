@@ -16,12 +16,15 @@
     "@heroui/react": "^3.2.1",
     "@heroui/styles": "^3.2.1",
     "@mdx-js/mdx": "^3.1.1",
-    "@openpawlabs/diy-guides-ui": "^1.0.0",
+    "@openpawlabs/diy-guides-ui": "^1.1.0",
     "@tailwindcss/postcss": "^4.3.1",
     "@tailwindcss/vite": "^4.3.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "tailwindcss": "^4.3.1"
+    "remark-mdx": "^3.1.1",
+    "remark-parse": "^11.0.0",
+    "tailwindcss": "^4.3.1",
+    "unified": "^11.0.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -42,5 +45,10 @@
     "typescript-eslint": "^8.62.0",
     "vite": "^8.1.0",
     "vitest": "^4.1.9"
+  },
+  "pnpm": {
+    "overrides": {
+      "@openpawlabs/diy-guides-ui": "link:../diy-guides-ui-react"
+    }
   }
 }

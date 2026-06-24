@@ -93,7 +93,7 @@ export function GuideEditor({
 
           <Card>
             <Card.Header className="flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Card.Title>{guide.folderName}</Card.Title>
+              <Card.Title>Guide Editor</Card.Title>
               <div className="flex flex-wrap items-center gap-3">
                 <span
                   className={`rounded-full px-3 py-1 text-sm font-medium ${

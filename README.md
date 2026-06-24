@@ -37,6 +37,9 @@ repository locally, open the authoring site, open a guide folder, and edit
   are pending, prompts the author to keep their edits or reload from disk.
 - Saves edits back to `guide.mdx` (serialized only on save) and warns before
   leaving with unsaved changes.
+- Discards unsaved edits behind a confirmation modal that shows the exact
+  line-level diff between the in-memory edits and the file on disk, then reverts
+  the editor to the on-disk version and clears the persisted draft.
 - Builds as a static site for GitHub Pages at `https://openpawlabs.github.io/diy-guides-authoring-tool/`.
 
 ## Development

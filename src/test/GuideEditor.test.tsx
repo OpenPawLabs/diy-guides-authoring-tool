@@ -28,12 +28,36 @@ describe("GuideEditor", () => {
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
     expect(screen.getByTestId("guide-preview")).toHaveTextContent("# Edited");
 
-    await userEvent.click(screen.getByRole("button", { name: "Save 0-overview" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(directory.files.get(GUIDE_MDX)?.content).toBe("# Edited");
       expect(screen.getByText("Saved")).toBeInTheDocument();
     });
+  });
+
+  it("discards edits after confirming the change preview", async () => {
+    const directory = readyDirectory("# Initial");
+    renderEditor("discard-guide", directory);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Raw MDX" }));
+
+    const editor = await screen.findByLabelText("MDX source");
+    fireEvent.change(editor, { target: { value: "# Edited" } });
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+
+    expect(screen.getByText("Discard unsaved changes?")).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Discard changes" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Saved")).toBeInTheDocument();
+      expect(screen.getByLabelText("MDX source")).toHaveValue("# Initial");
+    });
+    expect(directory.files.get(GUIDE_MDX)?.content).toBe("# Initial");
   });
 
   it("edits and saves a structured guide", async () => {
@@ -45,7 +69,7 @@ describe("GuideEditor", () => {
 
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Save 0-overview" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(directory.files.get(GUIDE_MDX)?.content).toContain(
@@ -64,7 +88,7 @@ describe("GuideEditor", () => {
 
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Save 0-overview" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(directory.files.get(GUIDE_MDX)?.content).toContain("A fresh intro.");

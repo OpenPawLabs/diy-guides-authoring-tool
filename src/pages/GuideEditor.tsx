@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Alert, Button, Card } from "@heroui/react";
+import { DiscardChangesModal } from "../components/DiscardChangesModal";
 import { DiskConflictModal } from "../components/DiskConflictModal";
 import { GuidePreview } from "../components/GuidePreview";
 import { GuideStatusCard } from "../components/GuideStatusCard";
@@ -30,6 +32,11 @@ export function GuideEditor({
     initialGuide: guide,
     onPermissionLost,
   });
+
+  const [discardPreview, setDiscardPreview] = useState<{
+    before: string;
+    after: string;
+  } | null>(null);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-6 py-10">
@@ -104,6 +111,19 @@ export function GuideEditor({
                 >
                   {document.isDirty ? "Unsaved changes" : "Saved"}
                 </span>
+                <Button
+                  isDisabled={!document.isDirty || document.state.isSaving}
+                  variant="outline"
+                  onPress={() => {
+                    if (document.state.status !== "ready") return;
+                    setDiscardPreview({
+                      before: document.state.baseSource,
+                      after: document.getCurrentSource(),
+                    });
+                  }}
+                >
+                  Discard
+                </Button>
                 <Button
                   isDisabled={!document.isDirty || document.state.isSaving}
                   variant="primary"
@@ -205,6 +225,17 @@ export function GuideEditor({
           </Card>
         </>
       )}
+
+      <DiscardChangesModal
+        isOpen={discardPreview != null}
+        before={discardPreview?.before ?? ""}
+        after={discardPreview?.after ?? ""}
+        onCancel={() => setDiscardPreview(null)}
+        onConfirm={() => {
+          setDiscardPreview(null);
+          void document.discardChanges();
+        }}
+      />
 
       <DiskConflictModal
         isOpen={document.hasConflict}

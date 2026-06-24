@@ -394,6 +394,27 @@ export function useGuideDocument({
     }
   }, [directory, guideId, onPermissionLost, state]);
 
+  /** Serialize the current editing state to MDX (for diffing before a discard). */
+  const getCurrentSource = useCallback(
+    () => (state.status === "ready" ? currentSourceOf(state) : ""),
+    [state],
+  );
+
+  /** Drop all unsaved edits and revert the editor to the on-disk `guide.mdx`. */
+  const discardChanges = useCallback(async () => {
+    if (state.status !== "ready" || !state.isDirty) {
+      return;
+    }
+
+    await clearDraft(guideId);
+    pendingDraft.current = null;
+    setState((current) =>
+      current.status === "ready"
+        ? readyFromSource(current.guide, current.baseSource, current.loadedHash)
+        : current,
+    );
+  }, [guideId, state]);
+
   /** Resolve a disk conflict by keeping in-memory edits (disk version is overridden on next save). */
   const keepEdits = useCallback(() => {
     setState((current) =>
@@ -437,8 +458,12 @@ export function useGuideDocument({
       setMode,
       keepEdits,
       reloadFromDisk,
+      discardChanges,
+      getCurrentSource,
     }),
     [
+      discardChanges,
+      getCurrentSource,
       hasConflict,
       isDirty,
       keepEdits,

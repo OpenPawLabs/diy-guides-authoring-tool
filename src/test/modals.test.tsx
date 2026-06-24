@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { DiscardChangesModal } from "../components/DiscardChangesModal";
 import { DiskConflictModal } from "../components/DiskConflictModal";
 import { FolderAccessModal } from "../components/FolderAccessModal";
 
@@ -46,5 +47,47 @@ describe("DiskConflictModal", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Reload from disk" }));
     expect(onReloadFromDisk).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("DiscardChangesModal", () => {
+  it("shows the line-level changes and wires the actions", async () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+
+    render(
+      <DiscardChangesModal
+        isOpen
+        before={'title="Old"'}
+        after={'title="New"'}
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    expect(screen.getByText(/title="Old"/)).toBeInTheDocument();
+    expect(screen.getByText(/title="New"/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports when there is nothing to discard", () => {
+    render(
+      <DiscardChangesModal
+        isOpen
+        before="same"
+        after="same"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("No differences from the file on disk."),
+    ).toBeInTheDocument();
   });
 });

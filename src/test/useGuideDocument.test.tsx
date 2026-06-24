@@ -114,6 +114,28 @@ describe("useGuideDocument refresh safety", () => {
     expect(await getDraft("g4")).toBeNull();
   });
 
+  it("discards edits, reverts to disk, and clears the persisted draft", async () => {
+    const directory = readyDirectory("# Initial");
+    const { result } = renderDocument("g-discard", directory);
+
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+
+    act(() => result.current.setRawSource("# Edited away"));
+    expect(result.current.isDirty).toBe(true);
+    expect(result.current.getCurrentSource()).toBe("# Edited away");
+
+    await act(async () => {
+      await result.current.discardChanges();
+    });
+
+    expect(result.current.isDirty).toBe(false);
+    expect(
+      result.current.state.status === "ready" && result.current.state.rawSource,
+    ).toBe("# Initial");
+    expect(directory.files.get(GUIDE_MDX)?.content).toBe("# Initial");
+    expect(await getDraft("g-discard")).toBeNull();
+  });
+
   it("reports permission loss instead of erroring", async () => {
     const directory = readyDirectory("# Initial");
     vi.spyOn(directory, "queryPermission").mockResolvedValue("denied");

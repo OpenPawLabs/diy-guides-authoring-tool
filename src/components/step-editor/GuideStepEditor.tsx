@@ -28,6 +28,14 @@ type PendingUpload = "add" | { replace: number };
 
 const MENU_WIDTH = 224;
 
+/** Track which index the active selection lands on after a thumbnail is moved. */
+function indexAfterMove(current: number, from: number, to: number): number {
+  if (current === from) return to;
+  if (from < current && current <= to) return current - 1;
+  if (to <= current && current < from) return current + 1;
+  return current;
+}
+
 /**
  * Renders the real `GuideStep` as the editing surface for one step: inline title
  * and bullet text, a marker dropdown for color/variant, a "+ New bullet" control,
@@ -107,6 +115,13 @@ export function GuideStepEditor({
       onStepChange((draft) => {
         draft.media.splice(index, 1);
       }),
+    onReorderImage: (from, to) => {
+      onStepChange((draft) => {
+        const [moved] = draft.media.splice(from, 1);
+        draft.media.splice(to, 0, moved);
+      });
+      setActiveMediaIndex((current) => indexAfterMove(current, from, to));
+    },
   };
 
   const updateBullet = (

@@ -28,7 +28,7 @@ describe("GuideEditor", () => {
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
     expect(screen.getByTestId("guide-preview")).toHaveTextContent("# Edited");
 
-    await userEvent.click(screen.getByRole("button", { name: "Save guide.mdx" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save 0-overview" }));
 
     await waitFor(() => {
       expect(directory.files.get(GUIDE_MDX)?.content).toBe("# Edited");
@@ -45,7 +45,7 @@ describe("GuideEditor", () => {
 
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Save guide.mdx" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save 0-overview" }));
 
     await waitFor(() => {
       expect(directory.files.get(GUIDE_MDX)?.content).toContain(
@@ -53,6 +53,34 @@ describe("GuideEditor", () => {
       );
       expect(screen.getByText("Saved")).toBeInTheDocument();
     });
+  });
+
+  it("edits guide-level details from the Overview tab", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+    renderEditor("overview-guide", directory);
+
+    const intro = await screen.findByLabelText("Intro content");
+    fireEvent.change(intro, { target: { value: "A fresh intro." } });
+
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Save 0-overview" }));
+
+    await waitFor(() => {
+      expect(directory.files.get(GUIDE_MDX)?.content).toContain("A fresh intro.");
+    });
+  });
+
+  it("switches between the Overview tab and a step", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+    renderEditor("tabs-guide", directory);
+
+    expect(await screen.findByLabelText("Intro content")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "1" }));
+
+    expect(screen.queryByLabelText("Intro content")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove step" })).toBeInTheDocument();
   });
 
   it("opens raw mode directly when structured editing cannot parse the document", async () => {

@@ -2,7 +2,7 @@ import { Alert, Button, Card } from "@heroui/react";
 import { DiskConflictModal } from "../components/DiskConflictModal";
 import { GuidePreview } from "../components/GuidePreview";
 import { GuideStatusCard } from "../components/GuideStatusCard";
-import { GuideDetailsForm } from "../components/GuideDetailsForm";
+import { GuideDetailsCard } from "../components/GuideDetailsCard";
 import { StepEditorPanel } from "../components/step-editor";
 import { useGuideDocument } from "../hooks/useGuideDocument";
 import type { GuideFolderStatus } from "../lib/fs/types";
@@ -41,10 +41,6 @@ export function GuideEditor({
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-default-950">
             {guide.folderName}
           </h1>
-          <p className="mt-2 max-w-2xl text-default-600">
-            Edit each step directly on the rendered guide, drop to raw MDX when
-            you need full control, and save when you are ready.
-          </p>
         </div>
         <Button variant="outline" onPress={onClose}>
           Back to guides
@@ -87,17 +83,17 @@ export function GuideEditor({
 
       {document.state.status === "ready" && (
         <>
-          <GuideStatusCard guide={document.state.guide} />
+          {document.state.mode === "structured" && document.state.draft && (
+            <GuideDetailsCard
+              draft={document.state.draft}
+              updateDraft={document.updateDraft}
+              lastModified={document.state.guide.guideMdxLastModified}
+            />
+          )}
 
           <Card>
             <Card.Header className="flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <Card.Title>guide.mdx</Card.Title>
-                <Card.Description>
-                  Changes stay local until you save, then appear as a normal git
-                  diff in the selected guide folder.
-                </Card.Description>
-              </div>
+              <Card.Title>{guide.folderName}</Card.Title>
               <div className="flex flex-wrap items-center gap-3">
                 <span
                   className={`rounded-full px-3 py-1 text-sm font-medium ${
@@ -113,7 +109,7 @@ export function GuideEditor({
                   variant="primary"
                   onPress={() => void document.save()}
                 >
-                  {document.state.isSaving ? "Saving..." : "Save guide.mdx"}
+                  {document.state.isSaving ? "Saving..." : `Save`}
                 </Button>
               </div>
             </Card.Header>
@@ -169,25 +165,11 @@ export function GuideEditor({
               )}
 
               {document.state.mode === "structured" && document.state.draft ? (
-                <div className="flex flex-col gap-6">
-                  <StepEditorPanel
-                    draft={document.state.draft}
-                    directory={directory}
-                    updateDraft={document.updateDraft}
-                  />
-
-                  <details className="rounded-xl border border-default-200 bg-default-50">
-                    <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-default-700">
-                      Guide details (header, intro, tools, callouts)
-                    </summary>
-                    <div className="border-t border-default-200 p-4">
-                      <GuideDetailsForm
-                        draft={document.state.draft}
-                        updateDraft={document.updateDraft}
-                      />
-                    </div>
-                  </details>
-                </div>
+                <StepEditorPanel
+                  draft={document.state.draft}
+                  directory={directory}
+                  updateDraft={document.updateDraft}
+                />
               ) : (
                 <div className="grid gap-5 lg:grid-cols-2">
                   <section className="flex min-h-[36rem] flex-col gap-2">

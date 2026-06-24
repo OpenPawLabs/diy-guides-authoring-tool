@@ -4,8 +4,9 @@ import {
   type GuideDraft,
   type StepDraft,
 } from "../../lib/mdx/structuredGuide";
+import { GuideOverviewForm } from "../GuideOverviewForm";
 import { GuideStepEditor } from "./GuideStepEditor";
-import { StepNavigator } from "./StepNavigator";
+import { StepNavigator, type StepSelection } from "./StepNavigator";
 
 interface StepEditorPanelProps {
   draft: GuideDraft;
@@ -14,24 +15,26 @@ interface StepEditorPanelProps {
 }
 
 /**
- * Primary editing surface: a step selector over the rendered `GuideStep` for the
- * active step. Owns which step is selected and brokers step-scoped draft edits.
+ * Primary editing surface: a selector over the rendered `GuideStep` for the active
+ * step, plus an Overview tab for guide-level intro, tools, and callouts. Owns the
+ * current selection and brokers step-scoped draft edits.
  */
 export function StepEditorPanel({
   draft,
   directory,
   updateDraft,
 }: StepEditorPanelProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [selection, setSelection] = useState<StepSelection>("overview");
   const steps = draft.steps;
-  const clampedIndex = steps.length ? Math.min(activeIndex, steps.length - 1) : 0;
-  const activeStep = steps[clampedIndex] as StepDraft | undefined;
+  const activeIndex =
+    typeof selection === "number" ? Math.min(selection, steps.length - 1) : -1;
+  const activeStep = steps[activeIndex] as StepDraft | undefined;
 
   const addStep = () => {
     updateDraft((next) => {
       next.steps.push(createBlankStep());
     });
-    setActiveIndex(steps.length);
+    setSelection(steps.length);
   };
 
   const moveStep = (index: number, direction: -1 | 1) => {
@@ -43,7 +46,7 @@ export function StepEditorPanel({
       const [moved] = next.steps.splice(index, 1);
       next.steps.splice(target, 0, moved);
     });
-    setActiveIndex(target);
+    setSelection(target);
   };
 
   const removeStep = (index: number) => {
@@ -53,12 +56,12 @@ export function StepEditorPanel({
     updateDraft((next) => {
       next.steps.splice(index, 1);
     });
-    setActiveIndex(Math.max(0, index - 1));
+    setSelection(Math.max(0, index - 1));
   };
 
   const onStepChange = (mutate: (step: StepDraft) => void) =>
     updateDraft((next) => {
-      const step = next.steps[clampedIndex];
+      const step = next.steps[activeIndex];
       if (step) {
         mutate(step);
       }
@@ -68,19 +71,21 @@ export function StepEditorPanel({
     <div className="flex flex-col gap-5">
       <StepNavigator
         steps={steps}
-        activeIndex={clampedIndex}
-        onSelect={setActiveIndex}
+        active={selection === "overview" ? "overview" : activeIndex}
+        onSelect={setSelection}
         onAdd={addStep}
         onMove={moveStep}
         onRemove={removeStep}
       />
 
-      {activeStep ? (
+      {selection === "overview" ? (
+        <GuideOverviewForm draft={draft} updateDraft={updateDraft} />
+      ) : activeStep ? (
         <div className="rounded-xl border border-default-200 bg-background p-5 shadow-sm">
           <GuideStepEditor
             key={activeStep.id}
             step={activeStep}
-            stepNumber={clampedIndex + 1}
+            stepNumber={activeIndex + 1}
             directory={directory}
             onStepChange={onStepChange}
           />

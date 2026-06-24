@@ -1,71 +1,33 @@
 import { Button, Card } from "@heroui/react";
-import { useId } from "react";
-import type { ReactNode } from "react";
 import {
   calloutTypes,
   createBlankCallout,
   createBlankToolItem,
   createBlankToolList,
-  guideDifficulties,
   type GuideCalloutType,
-  type GuideDifficulty,
   type GuideDraft,
 } from "../lib/mdx/structuredGuide";
+import {
+  ReorderControls,
+  Section,
+  SelectField,
+  TextAreaField,
+  TextField,
+} from "./GuideFormFields";
 
-interface GuideDetailsFormProps {
+interface GuideOverviewFormProps {
   draft: GuideDraft;
   updateDraft: (mutate: (draft: GuideDraft) => void) => void;
 }
 
 /**
- * Form for guide-level details (header, intro, tools/parts, callouts). Steps are
- * edited inline on the rendered guide via the step editor, not here.
+ * Guide-level content that sits alongside the steps: intro copy, tools and parts
+ * lists, and callouts. Rendered from the step navigator's Overview tab. The guide
+ * header fields live in {@link GuideDetailsCard}.
  */
-export function GuideDetailsForm({ draft, updateDraft }: GuideDetailsFormProps) {
+export function GuideOverviewForm({ draft, updateDraft }: GuideOverviewFormProps) {
   return (
     <div className="flex flex-col gap-4">
-      <Section title="Guide details">
-        <div className="grid gap-4 md:grid-cols-2">
-          <TextField
-            label="Title"
-            value={draft.header.title}
-            onChange={(value) =>
-              updateDraft((next) => {
-                next.header.title = value;
-              })
-            }
-          />
-          <SelectField
-            label="Difficulty"
-            value={draft.header.difficulty}
-            options={guideDifficulties}
-            onChange={(value) =>
-              updateDraft((next) => {
-                next.header.difficulty = value as GuideDifficulty;
-              })
-            }
-          />
-          <TextField
-            label="Time estimate"
-            value={draft.header.timeEstimate}
-            onChange={(value) =>
-              updateDraft((next) => {
-                next.header.timeEstimate = value;
-              })
-            }
-          />
-          <TextField
-            label="Meta"
-            value={draft.header.meta}
-            onChange={(value) =>
-              updateDraft((next) => {
-                next.header.meta = value;
-              })
-            }
-          />
-        </div>
-      </Section>
-
       <Section title="Intro">
         <TextAreaField
           label="Intro content"
@@ -346,149 +308,6 @@ export function GuideDetailsForm({ draft, updateDraft }: GuideDetailsFormProps) 
   );
 }
 
-function Section({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="border border-default-200 shadow-sm">
-      <Card.Header className="flex-row items-center justify-between gap-4">
-        <Card.Title>{title}</Card.Title>
-        {action}
-      </Card.Header>
-      <Card.Content className="space-y-4 p-4">{children}</Card.Content>
-    </Card>
-  );
-}
-
-function TextField({
-  label,
-  value,
-  type = "text",
-  onChange,
-}: {
-  label: string;
-  value: string;
-  type?: "text" | "number";
-  onChange: (value: string) => void;
-}) {
-  const id = useId();
-  return (
-    <label className="flex flex-col gap-1.5 text-sm font-medium text-default-700" htmlFor={id}>
-      {label}
-      <input
-        id={id}
-        type={type}
-        className={fieldClassName}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
-  );
-}
-
-function TextAreaField({
-  label,
-  value,
-  rows,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  rows: number;
-  onChange: (value: string) => void;
-}) {
-  const id = useId();
-  return (
-    <label className="flex flex-col gap-1.5 text-sm font-medium text-default-700" htmlFor={id}>
-      {label}
-      <textarea
-        id={id}
-        rows={rows}
-        className={`${fieldClassName} resize-y font-mono leading-6`}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
-  );
-}
-
-function SelectField<T extends string>({
-  label,
-  value,
-  options,
-  isDisabled = false,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: readonly T[];
-  isDisabled?: boolean;
-  onChange: (value: T) => void;
-}) {
-  const id = useId();
-  return (
-    <label className="flex flex-col gap-1.5 text-sm font-medium text-default-700" htmlFor={id}>
-      {label}
-      <select
-        id={id}
-        disabled={isDisabled}
-        className={fieldClassName}
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {labelForOption(option)}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function ReorderControls({
-  canMoveUp,
-  canMoveDown,
-  canRemove = true,
-  removeLabel,
-  onMoveUp,
-  onMoveDown,
-  onRemove,
-}: {
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  canRemove?: boolean;
-  removeLabel: string;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onRemove: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      <Button isDisabled={!canMoveUp} variant="outline" onPress={onMoveUp}>
-        Move up
-      </Button>
-      <Button isDisabled={!canMoveDown} variant="outline" onPress={onMoveDown}>
-        Move down
-      </Button>
-      <Button
-        isDisabled={!canRemove}
-        variant="outline"
-        className="text-danger"
-        onPress={onRemove}
-      >
-        {removeLabel}
-      </Button>
-    </div>
-  );
-}
-
 function moveItem<T>(items: T[], from: number, to: number): void {
   if (to < 0 || to >= items.length) {
     return;
@@ -502,14 +321,3 @@ function parseOptionalNumber(value: string): number | undefined {
   const number = Number(value);
   return value.trim() !== "" && Number.isFinite(number) ? number : undefined;
 }
-
-function labelForOption(value: string): string {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-const fieldClassName =
-  "rounded-xl border border-default-300 bg-white px-3 py-2 text-sm text-default-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary-200 disabled:bg-default-100 disabled:text-default-500";

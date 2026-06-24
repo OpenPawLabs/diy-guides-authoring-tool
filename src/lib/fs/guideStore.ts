@@ -1,3 +1,4 @@
+import type { StepSelection } from "../../components/step-editor/StepNavigator";
 import type { EditorMode } from "../../hooks/useGuideDocument";
 import type { GuideDifficulty, GuideDraft } from "../mdx/structuredGuide";
 import {
@@ -19,6 +20,8 @@ export interface StoredGuide {
   lastSavedAt?: number;
   /** Hash of the `guide.mdx` content the last time it was read or saved. */
   lastLoadedHash?: string;
+  /** The Overview tab or step index the author last had open, restored on refresh. */
+  lastStep?: StepSelection;
 }
 
 /** Unsaved editor edits, persisted so a refresh or permission loss cannot drop them. */

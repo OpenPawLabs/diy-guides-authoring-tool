@@ -86,6 +86,16 @@ describe("guideStore guides", () => {
 
     await expect(updateGuide("missing", { title: "noop" })).resolves.toBeUndefined();
   });
+
+  it("remembers the last open step across reads", async () => {
+    await putGuide(guide("a"));
+
+    await updateGuide("a", { lastStep: 2 });
+    expect((await getGuide("a"))?.lastStep).toBe(2);
+
+    await updateGuide("a", { lastStep: "overview" });
+    expect((await getGuide("a"))?.lastStep).toBe("overview");
+  });
 });
 
 describe("guideStore drafts", () => {

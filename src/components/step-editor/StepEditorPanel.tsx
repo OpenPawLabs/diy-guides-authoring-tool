@@ -12,6 +12,10 @@ interface StepEditorPanelProps {
   draft: GuideDraft;
   directory: FileSystemDirectoryHandle;
   updateDraft: (mutate: (draft: GuideDraft) => void) => void;
+  /** Tab to open on mount (restored from persistence); defaults to Overview. */
+  initialSelection?: StepSelection;
+  /** Reports the active tab so it can be persisted and restored after a refresh. */
+  onSelectionChange?: (selection: StepSelection) => void;
 }
 
 /**
@@ -23,8 +27,14 @@ export function StepEditorPanel({
   draft,
   directory,
   updateDraft,
+  initialSelection = "overview",
+  onSelectionChange,
 }: StepEditorPanelProps) {
-  const [selection, setSelection] = useState<StepSelection>("overview");
+  const [selection, setSelection] = useState<StepSelection>(initialSelection);
+  const select = (next: StepSelection) => {
+    setSelection(next);
+    onSelectionChange?.(next);
+  };
   const steps = draft.steps;
   const activeIndex =
     typeof selection === "number" ? Math.min(selection, steps.length - 1) : -1;
@@ -34,7 +44,7 @@ export function StepEditorPanel({
     updateDraft((next) => {
       next.steps.push(createBlankStep());
     });
-    setSelection(steps.length);
+    select(steps.length);
   };
 
   const moveStep = (index: number, direction: -1 | 1) => {
@@ -46,7 +56,7 @@ export function StepEditorPanel({
       const [moved] = next.steps.splice(index, 1);
       next.steps.splice(target, 0, moved);
     });
-    setSelection(target);
+    select(target);
   };
 
   const removeStep = (index: number) => {
@@ -56,7 +66,7 @@ export function StepEditorPanel({
     updateDraft((next) => {
       next.steps.splice(index, 1);
     });
-    setSelection(Math.max(0, index - 1));
+    select(Math.max(0, index - 1));
   };
 
   const onStepChange = (mutate: (step: StepDraft) => void) =>
@@ -72,7 +82,7 @@ export function StepEditorPanel({
       <StepNavigator
         steps={steps}
         active={selection === "overview" ? "overview" : activeIndex}
-        onSelect={setSelection}
+        onSelect={select}
         onAdd={addStep}
         onMove={moveStep}
         onRemove={removeStep}

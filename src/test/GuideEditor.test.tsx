@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GuideEditor } from "../pages/GuideEditor";
 import { GUIDE_DB, GUIDE_MDX } from "../lib/fs/constants";
+import { getGuide, putGuide } from "../lib/fs/guideStore";
+import type { StepSelection } from "../components/step-editor/StepNavigator";
 import { blankGuideMdx } from "../lib/templates/blankGuideMdx";
 import { FakeDirectoryHandle, readyDirectory } from "./fakeFs";
 
@@ -162,6 +164,37 @@ describe("GuideEditor", () => {
     expect(screen.getByRole("button", { name: "Remove step" })).toBeInTheDocument();
   });
 
+  it("reopens the persisted step instead of Overview on load", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+    renderEditor("restore-guide", directory, { initialStep: 0 });
+
+    expect(
+      await screen.findByRole("button", { name: "Remove step" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Intro content")).not.toBeInTheDocument();
+  });
+
+  it("persists the active step to the recents entry when it changes", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+    await putGuide({
+      id: "persist-guide",
+      handle: directory.asDirectoryHandle(),
+      folderName: directory.name,
+      lastOpenedAt: 1,
+    });
+    renderEditor("persist-guide", directory);
+
+    await userEvent.click(await screen.findByRole("tab", { name: "1" }));
+    await waitFor(async () => {
+      expect((await getGuide("persist-guide"))?.lastStep).toBe(0);
+    });
+
+    await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
+    await waitFor(async () => {
+      expect((await getGuide("persist-guide"))?.lastStep).toBe("overview");
+    });
+  });
+
   it("opens raw mode directly when structured editing cannot parse the document", async () => {
     const directory = readyDirectory("# Initial");
     renderEditor("unsupported-guide", directory);
@@ -186,13 +219,14 @@ describe("GuideEditor", () => {
 function renderEditor(
   guideId: string,
   directory: FakeDirectoryHandle,
-  overrides: { onClose?: () => void } = {},
+  overrides: { onClose?: () => void; initialStep?: StepSelection } = {},
 ) {
   return render(
     <GuideEditor
       guideId={guideId}
       directory={directory.asDirectoryHandle()}
       guide={guideStatus(directory)}
+      initialStep={overrides.initialStep}
       onClose={overrides.onClose ?? vi.fn()}
       onPermissionLost={vi.fn()}
     />,

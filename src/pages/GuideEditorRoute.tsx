@@ -80,6 +80,7 @@ export function GuideEditorRoute() {
       guideId={state.guide.id}
       directory={state.guide.handle}
       guide={state.folder}
+      initialStep={state.guide.lastStep}
       notice={state.notice}
       onClose={goHome}
       onPermissionLost={markPermissionLost}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, Button, Card } from "@heroui/react";
 import { DiscardChangesModal } from "../components/DiscardChangesModal";
 import { DiskConflictModal } from "../components/DiskConflictModal";
@@ -6,13 +6,17 @@ import { GuidePreview } from "../components/GuidePreview";
 import { GuideStatusCard } from "../components/GuideStatusCard";
 import { GuideDetailsCard } from "../components/GuideDetailsCard";
 import { StepEditorPanel } from "../components/step-editor";
+import type { StepSelection } from "../components/step-editor/StepNavigator";
 import { useGuideDocument } from "../hooks/useGuideDocument";
+import { updateGuide } from "../lib/fs/guideStore";
 import type { GuideFolderStatus } from "../lib/fs/types";
 
 interface GuideEditorProps {
   guideId: string;
   directory: FileSystemDirectoryHandle;
   guide: GuideFolderStatus & { guideMdxExists: true };
+  /** Tab to reopen, restored from the recents entry so refreshes keep your place. */
+  initialStep?: StepSelection;
   notice?: string;
   onClose: () => void;
   onPermissionLost: (folderName?: string) => void;
@@ -22,10 +26,16 @@ export function GuideEditor({
   guideId,
   directory,
   guide,
+  initialStep,
   notice,
   onClose,
   onPermissionLost,
 }: GuideEditorProps) {
+  const persistStep = useCallback(
+    (selection: StepSelection) => void updateGuide(guideId, { lastStep: selection }),
+    [guideId],
+  );
+
   const document = useGuideDocument({
     guideId,
     directory,
@@ -189,6 +199,8 @@ export function GuideEditor({
                   draft={document.state.draft}
                   directory={directory}
                   updateDraft={document.updateDraft}
+                  initialSelection={initialStep}
+                  onSelectionChange={persistStep}
                 />
               ) : (
                 <div className="grid gap-5 lg:grid-cols-2">

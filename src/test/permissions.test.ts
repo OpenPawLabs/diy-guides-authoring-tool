@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ensureReadWritePermission,
   hasReadWritePermission,
+  requestReadWritePermission,
 } from "../lib/fs/permissions";
 import { PermissionLostError } from "../lib/fs/types";
 
@@ -24,6 +25,16 @@ describe("permissions", () => {
     await expect(ensureReadWritePermission(handle)).rejects.toBeInstanceOf(
       PermissionLostError,
     );
+  });
+
+  it("reports whether a re-prompt was granted without throwing", async () => {
+    await expect(
+      requestReadWritePermission(createPermissionHandle("prompt", "granted")),
+    ).resolves.toBe(true);
+
+    await expect(
+      requestReadWritePermission(createPermissionHandle("prompt", "denied")),
+    ).resolves.toBe(false);
   });
 });
 

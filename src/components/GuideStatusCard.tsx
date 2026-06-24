@@ -1,38 +1,38 @@
 import type { ReactNode } from "react";
 import { Card, Chip } from "@heroui/react";
-import type { ChapterStatus } from "../lib/fs/types";
+import type { GuideFolderStatus } from "../lib/fs/types";
 
-interface ChapterStatusCardProps {
-  chapter: ChapterStatus;
+interface GuideStatusCardProps {
+  guide: GuideFolderStatus;
 }
 
-export function ChapterStatusCard({ chapter }: ChapterStatusCardProps) {
+export function GuideStatusCard({ guide }: GuideStatusCardProps) {
   return (
     <Card>
       <Card.Header>
-        <Card.Title>{chapter.folderName}</Card.Title>
-        <Card.Description>Selected chapter folder</Card.Description>
+        <Card.Title>{guide.folderName}</Card.Title>
+        <Card.Description>Selected guide folder</Card.Description>
       </Card.Header>
       <Card.Content>
         <dl className="grid gap-4 sm:grid-cols-2">
           <StatusItem label="guide.mdx">
-            <Chip color={chapter.guideMdxExists ? "success" : "warning"}>
-              {chapter.guideMdxExists ? "Exists" : "Missing"}
+            <Chip color={guide.guideMdxExists ? "success" : "warning"}>
+              {guide.guideMdxExists ? "Exists" : "Missing"}
             </Chip>
           </StatusItem>
           <StatusItem label="images/">
-            <Chip color={chapter.imagesDirExists ? "success" : "warning"}>
-              {chapter.imagesDirExists ? "Ready" : "Not found"}
+            <Chip color={guide.imagesDirExists ? "success" : "warning"}>
+              {guide.imagesDirExists ? "Ready" : "Not found"}
             </Chip>
           </StatusItem>
-          {chapter.guideMdxLastModified != null && (
+          {guide.guideMdxLastModified != null && (
             <StatusItem label="Last modified">
-              <span>{formatDate(chapter.guideMdxLastModified)}</span>
+              <span>{formatDate(guide.guideMdxLastModified)}</span>
             </StatusItem>
           )}
-          {chapter.guideMdxSize != null && (
+          {guide.guideMdxSize != null && (
             <StatusItem label="File size">
-              <span>{formatBytes(chapter.guideMdxSize)}</span>
+              <span>{formatBytes(guide.guideMdxSize)}</span>
             </StatusItem>
           )}
         </dl>

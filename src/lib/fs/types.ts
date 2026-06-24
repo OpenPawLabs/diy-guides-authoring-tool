@@ -1,4 +1,4 @@
-export interface ChapterStatus {
+export interface GuideFolderStatus {
   folderName: string;
   guideMdxExists: boolean;
   imagesDirExists: boolean;
@@ -6,32 +6,25 @@ export interface ChapterStatus {
   guideMdxSize?: number;
 }
 
-export type ChapterLoadResult =
+export type GuideLoadResult =
   | {
       kind: "ready";
-      status: ChapterStatus & { guideMdxExists: true };
+      status: GuideFolderStatus & { guideMdxExists: true };
     }
   | {
       kind: "missing-guide";
-      status: ChapterStatus & { guideMdxExists: false };
+      status: GuideFolderStatus & { guideMdxExists: false };
     };
 
-export type CreateChapterResult =
+export type CreateGuideResult =
   | {
       kind: "created";
-      status: ChapterStatus & { guideMdxExists: true; imagesDirExists: true };
+      status: GuideFolderStatus & { guideMdxExists: true; imagesDirExists: true };
     }
   | {
       kind: "already-exists";
-      status: ChapterStatus & { guideMdxExists: true };
+      status: GuideFolderStatus & { guideMdxExists: true };
     };
-
-export interface StoredChapterHandle {
-  id: string;
-  name: string;
-  handle: FileSystemDirectoryHandle;
-  updatedAt: number;
-}
 
 export class UserCancelledFolderPickError extends Error {
   constructor() {

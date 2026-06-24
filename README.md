@@ -1,18 +1,24 @@
 # diy-guides-authoring-tool
 
-Create and maintain DIY guide chapters from a local folder.
+Create and maintain DIY guides from a local folder.
 
 The tool is a Chrome-focused GitHub Pages app. Authors clone a guide
-repository locally, open the authoring site, grant access to a chapter folder,
-and edit `guide.mdx` with a live preview before saving changes back to disk.
+repository locally, open the authoring site, open a guide folder, and edit
+`guide.mdx` with a live preview before saving changes back to disk.
 
 ## Current capabilities
 
-- Explains the local workflow: clone a guide repo, open Chrome, grant folder access, then use git outside the tool.
-- Opens an existing chapter folder with Chrome's File System Access API.
-- Offers to create `guide.mdx` when an opened folder does not have one.
-- Starts a new chapter by creating `guide.mdx` and `images/.gitkeep`.
-- Remembers the last folder handle in IndexedDB and prompts authors to re-open it when permission is stale.
+- Opens on a **Guides** home page that lists previously edited guides as cards
+  (title, folder, difficulty, last edited) in a responsive 1 / 3 / 5 column grid,
+  plus an "Open guide folder" button for opening an arbitrary folder.
+- Uses hash-based routing (`#/guide/:id`) so each guide has its own URL and a
+  refresh lands the author back on the guide they were editing.
+- Opens a guide folder with Chrome's File System Access API and remembers every
+  opened folder in IndexedDB as a recents entry.
+- Re-prompts for folder access with an "Allow Access" modal when Chrome has
+  dropped read/write permission (for example, after a refresh).
+- Offers to create `guide.mdx` and `images/.gitkeep` when an opened folder does
+  not have a guide yet.
 - Loads `guide.mdx` into an inline step editor where the real
   `@openpawlabs/diy-guides-ui` `GuideStep` is the editing surface.
 - Edits step titles and bullet text inline, sets bullet color/variant from the
@@ -23,9 +29,13 @@ and edit `guide.mdx` with a live preview before saving changes back to disk.
 - Keeps raw MDX available (with a compiled preview) for custom content and guide
   shapes the structured editor does not support yet.
 - Imports images into `images/` under a sanitized, de-duplicated file name and
-  resolves `./images/...` paths from the selected chapter folder.
+  resolves `./images/...` paths from the selected guide folder.
+- Mirrors unsaved edits to IndexedDB so a refresh or dropped permission never
+  loses work, and restores them automatically on the next load.
+- Hashes the loaded `guide.mdx` and, when the file changes on disk while edits
+  are pending, prompts the author to keep their edits or reload from disk.
 - Saves edits back to `guide.mdx` (serialized only on save) and warns before
-  closing or leaving with unsaved changes.
+  leaving with unsaved changes.
 - Builds as a static site for GitHub Pages at `https://openpawlabs.github.io/diy-guides-authoring-tool/`.
 
 ## Development

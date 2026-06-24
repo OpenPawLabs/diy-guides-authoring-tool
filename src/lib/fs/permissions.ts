@@ -27,15 +27,29 @@ export async function hasReadWritePermission(
 export async function ensureReadWritePermission(
   handle: FileSystemDirectoryHandle,
 ): Promise<void> {
+  if (!(await requestReadWritePermission(handle))) {
+    throw new PermissionLostError();
+  }
+}
+
+/**
+ * Query, then request read/write access for a stored handle, returning whether
+ * it is granted. Must run inside a user gesture for the prompt to appear. Unlike
+ * {@link ensureReadWritePermission} this reports denial as `false` rather than
+ * throwing, so callers can keep an "Allow access" prompt on screen.
+ */
+export async function requestReadWritePermission(
+  handle: FileSystemDirectoryHandle,
+): Promise<boolean> {
   const permissionHandle = toPermissionCapableHandle(handle);
 
   if ((await permissionHandle.queryPermission(readWritePermission)) === "granted") {
-    return;
+    return true;
   }
 
-  if ((await permissionHandle.requestPermission(readWritePermission)) !== "granted") {
-    throw new PermissionLostError();
-  }
+  return (
+    (await permissionHandle.requestPermission(readWritePermission)) === "granted"
+  );
 }
 
 export function isPermissionLostError(error: unknown): boolean {

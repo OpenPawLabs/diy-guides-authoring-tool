@@ -1,34 +1,52 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { readGuideMdx, writeGuideMdx } from "../lib/fs/chapterFiles";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { readGuideMdx, writeGuideMdx } from "../lib/fs/guideFiles";
+import { hashSource } from "../lib/fs/hash";
+import {
+  clearDraft,
+  getDraft,
+  putDraft,
+  updateGuide,
+  type StoredDraft,
+} from "../lib/fs/guideStore";
 import { isPermissionLostError } from "../lib/fs/permissions";
 import {
   parseStructuredGuide,
   updateStructuredGuideSource,
+  type GuideDifficulty,
   type GuideDraft,
 } from "../lib/mdx/structuredGuide";
-import type { ChapterStatus } from "../lib/fs/types";
+import type { GuideFolderStatus } from "../lib/fs/types";
 
-type Chapter = ChapterStatus & { guideMdxExists: true };
+type LoadedGuide = GuideFolderStatus & { guideMdxExists: true };
 
 export type EditorMode = "structured" | "raw";
 
 interface UseGuideDocumentOptions {
+  guideId: string;
   directory: FileSystemDirectoryHandle;
-  initialChapter: Chapter;
+  initialGuide: LoadedGuide;
   onPermissionLost?: (folderName?: string) => void;
+}
+
+interface DiskConflict {
+  diskSource: string;
+  diskHash: string;
 }
 
 /**
  * Document state. While editing, the structured `draft` is the source of truth in
  * structured mode and `rawSource` is authoritative in raw mode. MDX is only
- * (re)serialized on save and when switching modes — never per keystroke.
+ * (re)serialized on save and when switching modes — never per keystroke. Unsaved
+ * edits are mirrored to IndexedDB so a refresh or permission loss cannot drop
+ * them, and `loadedHash` anchors the on-disk content the session is based on so a
+ * file changed underneath the editor surfaces as a `conflict` choice.
  */
 type GuideDocumentState =
-  | { status: "loading"; chapter: Chapter }
-  | { status: "error"; chapter: Chapter; message: string }
+  | { status: "loading"; guide: LoadedGuide }
+  | { status: "error"; guide: LoadedGuide; message: string }
   | {
       status: "ready";
-      chapter: Chapter;
+      guide: LoadedGuide;
       mode: EditorMode;
       /** Present whenever the document matches the structured shape. */
       draft?: GuideDraft;
@@ -39,25 +57,34 @@ type GuideDocumentState =
       warnings: string[];
       /** Why structured editing is unavailable (kept document in raw mode). */
       structuredError?: string;
+      /** Hash of the on-disk file this edit session is anchored to. */
+      loadedHash: string;
       isDirty: boolean;
       isSaving: boolean;
       saveError?: string;
+      /** Set when the file on disk diverged from `loadedHash` while edits are pending. */
+      conflict?: DiskConflict;
     };
 
 type ReadyState = Extract<GuideDocumentState, { status: "ready" }>;
 
-function readyFromSource(chapter: Chapter, source: string): ReadyState {
+function readyFromSource(
+  guide: LoadedGuide,
+  source: string,
+  loadedHash: string,
+): ReadyState {
   const parsed = parseStructuredGuide(source);
 
   if (parsed.status === "supported") {
     return {
       status: "ready",
-      chapter,
+      guide,
       mode: "structured",
       draft: parsed.draft,
       baseSource: source,
       rawSource: source,
       warnings: parsed.warnings,
+      loadedHash,
       isDirty: false,
       isSaving: false,
     };
@@ -65,14 +92,44 @@ function readyFromSource(chapter: Chapter, source: string): ReadyState {
 
   return {
     status: "ready",
-    chapter,
+    guide,
     mode: "raw",
     baseSource: source,
     rawSource: source,
     warnings: [],
     structuredError: parsed.reason,
+    loadedHash,
     isDirty: false,
     isSaving: false,
+  };
+}
+
+function readyFromDraft(
+  guide: LoadedGuide,
+  stored: StoredDraft,
+  loadedHash: string,
+  conflict?: DiskConflict,
+): ReadyState {
+  const rawSource = stored.rawSource ?? stored.baseSource;
+  let structuredError: string | undefined;
+  if (stored.mode === "raw" && !stored.draft) {
+    const parsed = parseStructuredGuide(rawSource);
+    structuredError = parsed.status === "supported" ? undefined : parsed.reason;
+  }
+
+  return {
+    status: "ready",
+    guide,
+    mode: stored.mode,
+    draft: stored.draft,
+    baseSource: stored.baseSource,
+    rawSource,
+    warnings: [],
+    structuredError,
+    loadedHash,
+    isDirty: true,
+    isSaving: false,
+    conflict,
   };
 }
 
@@ -84,22 +141,69 @@ function currentSourceOf(state: ReadyState): string {
   return state.rawSource;
 }
 
+/** Card metadata derived from a guide source, when it matches the structured shape. */
+function metaFromSource(source: string): {
+  title?: string;
+  difficulty?: GuideDifficulty;
+} {
+  const parsed = parseStructuredGuide(source);
+  if (parsed.status !== "supported") {
+    return {};
+  }
+
+  return {
+    title: parsed.draft.header.title || undefined,
+    difficulty: parsed.draft.header.difficulty,
+  };
+}
+
+function toStoredDraft(guideId: string, state: ReadyState): StoredDraft {
+  return {
+    guideId,
+    mode: state.mode,
+    draft: state.draft,
+    rawSource: state.rawSource,
+    baseSource: state.baseSource,
+    baseHash: state.loadedHash,
+    updatedAt: Date.now(),
+  };
+}
+
 export function useGuideDocument({
+  guideId,
   directory,
-  initialChapter,
+  initialGuide,
   onPermissionLost,
 }: UseGuideDocumentOptions) {
   const [state, setState] = useState<GuideDocumentState>({
     status: "loading",
-    chapter: initialChapter,
+    guide: initialGuide,
   });
 
+  /** Latest unsaved draft, flushed on unmount so route changes never drop edits. */
+  const pendingDraft = useRef<StoredDraft | null>(null);
+
   const load = useCallback(async () => {
-    setState({ status: "loading", chapter: initialChapter });
+    setState({ status: "loading", guide: initialGuide });
 
     try {
       const source = await readGuideMdx(directory);
-      setState(readyFromSource(initialChapter, source));
+      const diskHash = await hashSource(source);
+      const stored = await getDraft(guideId);
+
+      if (stored) {
+        const conflict =
+          stored.baseHash === diskHash ? undefined : { diskSource: source, diskHash };
+        setState(readyFromDraft(initialGuide, stored, stored.baseHash, conflict));
+        return;
+      }
+
+      setState(readyFromSource(initialGuide, source, diskHash));
+      await updateGuide(guideId, {
+        lastOpenedAt: Date.now(),
+        lastLoadedHash: diskHash,
+        ...metaFromSource(source),
+      });
     } catch (error) {
       if (isPermissionLostError(error)) {
         onPermissionLost?.(directory.name);
@@ -108,20 +212,21 @@ export function useGuideDocument({
 
       setState({
         status: "error",
-        chapter: initialChapter,
+        guide: initialGuide,
         message:
           error instanceof Error
             ? error.message
             : "Could not load guide.mdx from this folder.",
       });
     }
-  }, [directory, initialChapter, onPermissionLost]);
+  }, [directory, guideId, initialGuide, onPermissionLost]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const isDirty = state.status === "ready" && state.isDirty;
+  const hasConflict = state.status === "ready" && state.conflict != null;
 
   useEffect(() => {
     if (!isDirty) {
@@ -136,6 +241,59 @@ export function useGuideDocument({
     window.addEventListener("beforeunload", warnBeforeUnload);
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
   }, [isDirty]);
+
+  // Mirror pending edits to IndexedDB (debounced) so a refresh restores them.
+  useEffect(() => {
+    if (state.status !== "ready" || !state.isDirty || state.conflict) {
+      return;
+    }
+
+    const draft = toStoredDraft(guideId, state);
+    pendingDraft.current = draft;
+    const timer = setTimeout(() => void putDraft(draft), 400);
+    return () => clearTimeout(timer);
+  }, [guideId, state]);
+
+  useEffect(
+    () => () => {
+      if (pendingDraft.current) {
+        void putDraft(pendingDraft.current);
+      }
+    },
+    [],
+  );
+
+  // Detect a `guide.mdx` changed by another tool while edits are pending.
+  useEffect(() => {
+    if (state.status !== "ready" || !state.isDirty || state.conflict) {
+      return;
+    }
+
+    const { loadedHash } = state;
+    const recheck = async () => {
+      try {
+        const source = await readGuideMdx(directory);
+        const diskHash = await hashSource(source);
+        if (diskHash === loadedHash) {
+          return;
+        }
+
+        setState((current) =>
+          current.status === "ready" && current.isDirty && !current.conflict
+            ? { ...current, conflict: { diskSource: source, diskHash } }
+            : current,
+        );
+      } catch (error) {
+        if (isPermissionLostError(error)) {
+          onPermissionLost?.(directory.name);
+        }
+      }
+    };
+
+    const onFocus = () => void recheck();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [directory, onPermissionLost, state]);
 
   const updateDraft = useCallback((mutate: (draft: GuideDraft) => void) => {
     setState((current) => {
@@ -192,15 +350,26 @@ export function useGuideDocument({
     setState({ ...state, isSaving: true, saveError: undefined });
 
     try {
-      const chapter = await writeGuideMdx(directory, source);
+      const guide = await writeGuideMdx(directory, source);
+      const savedHash = await hashSource(source);
+      await clearDraft(guideId);
+      pendingDraft.current = null;
+      await updateGuide(guideId, {
+        lastSavedAt: Date.now(),
+        lastLoadedHash: savedHash,
+        ...metaFromSource(source),
+      });
+
       setState((current) =>
         current.status === "ready"
           ? {
               ...current,
-              chapter,
+              guide,
               rawSource: source,
+              loadedHash: savedHash,
               isDirty: false,
               isSaving: false,
+              conflict: undefined,
             }
           : current,
       );
@@ -223,10 +392,63 @@ export function useGuideDocument({
           : current,
       );
     }
-  }, [directory, onPermissionLost, state]);
+  }, [directory, guideId, onPermissionLost, state]);
+
+  /** Resolve a disk conflict by keeping in-memory edits (disk version is overridden on next save). */
+  const keepEdits = useCallback(() => {
+    setState((current) =>
+      current.status === "ready" && current.conflict
+        ? { ...current, loadedHash: current.conflict.diskHash, conflict: undefined }
+        : current,
+    );
+  }, []);
+
+  /** Resolve a disk conflict by discarding edits and reloading the newer file. */
+  const reloadFromDisk = useCallback(async () => {
+    if (state.status !== "ready" || !state.conflict) {
+      return;
+    }
+
+    const { diskSource, diskHash } = state.conflict;
+    await clearDraft(guideId);
+    pendingDraft.current = null;
+    await updateGuide(guideId, {
+      lastOpenedAt: Date.now(),
+      lastLoadedHash: diskHash,
+      ...metaFromSource(diskSource),
+    });
+
+    setState((current) =>
+      current.status === "ready"
+        ? readyFromSource(current.guide, diskSource, diskHash)
+        : current,
+    );
+  }, [guideId, state]);
 
   return useMemo(
-    () => ({ state, isDirty, load, save, updateDraft, setRawSource, setMode }),
-    [isDirty, load, save, setMode, setRawSource, state, updateDraft],
+    () => ({
+      state,
+      isDirty,
+      hasConflict,
+      load,
+      save,
+      updateDraft,
+      setRawSource,
+      setMode,
+      keepEdits,
+      reloadFromDisk,
+    }),
+    [
+      hasConflict,
+      isDirty,
+      keepEdits,
+      load,
+      reloadFromDisk,
+      save,
+      setMode,
+      setRawSource,
+      state,
+      updateDraft,
+    ],
   );
 }

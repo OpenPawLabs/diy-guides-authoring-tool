@@ -2,13 +2,17 @@ import { blankGuideMdx } from "../templates/blankGuideMdx";
 import { GUIDE_MDX, IMAGES_DIR } from "./constants";
 import { sanitizeImageName, uniqueImageName } from "./imageNames";
 import { ensureReadWritePermission, isMissingEntryError } from "./permissions";
-import type { ChapterLoadResult, ChapterStatus, CreateChapterResult } from "./types";
+import type {
+  CreateGuideResult,
+  GuideFolderStatus,
+  GuideLoadResult,
+} from "./types";
 
 const KEEP_FILE = ".gitkeep";
 
-export async function loadChapterFolder(
+export async function loadGuideFolder(
   directory: FileSystemDirectoryHandle,
-): Promise<ChapterLoadResult> {
+): Promise<GuideLoadResult> {
   await ensureReadWritePermission(directory);
 
   const guideFile = await getFileHandle(directory, GUIDE_MDX);
@@ -34,9 +38,9 @@ export async function loadChapterFolder(
   };
 }
 
-export async function createBlankChapter(
+export async function createBlankGuide(
   directory: FileSystemDirectoryHandle,
-): Promise<CreateChapterResult> {
+): Promise<CreateGuideResult> {
   await ensureReadWritePermission(directory);
 
   const existingGuide = await getFileHandle(directory, GUIDE_MDX);
@@ -79,7 +83,7 @@ export async function readGuideMdx(
 export async function writeGuideMdx(
   directory: FileSystemDirectoryHandle,
   content: string,
-): Promise<ChapterStatus & { guideMdxExists: true }> {
+): Promise<GuideFolderStatus & { guideMdxExists: true }> {
   await ensureReadWritePermission(directory);
 
   const guideFile = await directory.getFileHandle(GUIDE_MDX);
@@ -91,7 +95,7 @@ export async function writeGuideMdx(
 }
 
 /**
- * Write an uploaded image into the chapter's `images/` directory under a safe,
+ * Write an uploaded image into the guide's `images/` directory under a safe,
  * de-duplicated name and return the relative MDX source path (`./images/<name>`).
  */
 export async function writeImageFile(
@@ -129,7 +133,7 @@ export async function ensureImagesDirectory(
 async function getGuideFileStatus(
   directory: FileSystemDirectoryHandle,
   guideFile: FileSystemFileHandle,
-): Promise<ChapterStatus & { guideMdxExists: true }> {
+): Promise<GuideFolderStatus & { guideMdxExists: true }> {
   const file = await guideFile.getFile();
 
   return {

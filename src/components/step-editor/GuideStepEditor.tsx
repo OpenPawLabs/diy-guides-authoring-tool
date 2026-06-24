@@ -5,7 +5,7 @@ import {
 } from "@openpawlabs/diy-guides-ui";
 import { useRef, useState } from "react";
 import { useResolvedImageSrcs } from "../../hooks/useResolvedImageSrc";
-import { writeImageFile } from "../../lib/fs/chapterFiles";
+import { writeImageFile } from "../../lib/fs/guideFiles";
 import {
   createBlankBullet,
   createStepMedia,

@@ -14,7 +14,7 @@ export function supportsDirectoryPicker(): boolean {
   return "showDirectoryPicker" in window;
 }
 
-export async function pickChapterFolder(): Promise<FileSystemDirectoryHandle> {
+export async function pickGuideFolder(): Promise<FileSystemDirectoryHandle> {
   if (!supportsDirectoryPicker()) {
     throw new UnsupportedFileSystemAccessError();
   }

@@ -32,7 +32,10 @@ type PendingUpload = "add" | { replace: number };
 type PendingDownload = { bulletId: string; index: number };
 
 const MENU_WIDTH = 224;
+const MENU_HEIGHT = 224;
 const LINK_MENU_WIDTH = 288;
+const LINK_MENU_HEIGHT = 232;
+const MENU_GAP = 8;
 
 /** Track which index the active selection lands on after a thumbnail is moved. */
 function indexAfterMove(current: number, from: number, to: number): number {
@@ -40,6 +43,19 @@ function indexAfterMove(current: number, from: number, to: number): number {
   if (from < current && current <= to) return current - 1;
   if (to <= current && current < from) return current + 1;
   return current;
+}
+
+/**
+ * Anchor a popover near the pointer while keeping it fully inside the viewport,
+ * so a marker pressed near an edge shifts the menu in instead of clipping it off.
+ */
+function anchorMenu(x: number, y: number, width: number, height: number) {
+  const clamp = (value: number, extent: number) =>
+    Math.max(MENU_GAP, Math.min(value, extent - MENU_GAP));
+  return {
+    left: clamp(x, window.innerWidth - width),
+    top: clamp(y + 10, window.innerHeight - height),
+  };
 }
 
 /**
@@ -276,7 +292,19 @@ export function GuideStepEditor({
             <MediaFigure key={item.id} src={resolvedSrcs[index]} />
           ))}
         </GuideStep.Media>
-        <GuideStep.Bullets>
+        <GuideStep.Bullets
+          editing={{
+            onAddBullet: () =>
+              onStepChange((draft) => void draft.bullets.push(createBlankBullet())),
+            onRemoveBullet: (index) =>
+              onStepChange((draft) => void draft.bullets.splice(index, 1)),
+            onReorderBullet: (from, to) =>
+              onStepChange((draft) => {
+                const [moved] = draft.bullets.splice(from, 1);
+                draft.bullets.splice(to, 0, moved);
+              }),
+          }}
+        >
           {step.bullets.map((bullet) => (
             <GuideStep.Bullet
               key={bullet.id}
@@ -329,17 +357,6 @@ export function GuideStepEditor({
               )}
             </GuideStep.Bullet>
           ))}
-          <li className="list-none">
-            <button
-              type="button"
-              onClick={() =>
-                onStepChange((draft) => void draft.bullets.push(createBlankBullet()))
-              }
-              className="rounded-md px-1 py-0.5 text-sm font-medium text-default-500 transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              + New bullet
-            </button>
-          </li>
         </GuideStep.Bullets>
       </GuideStep>
 
@@ -347,10 +364,7 @@ export function GuideStepEditor({
         <div className="fixed inset-0 z-50" onPointerDown={() => setMenu(null)}>
           <div
             className="absolute"
-            style={{
-              top: menu.y + 10,
-              left: Math.min(menu.x, window.innerWidth - MENU_WIDTH - 8),
-            }}
+            style={anchorMenu(menu.x, menu.y, MENU_WIDTH, MENU_HEIGHT)}
             onPointerDown={(event) => event.stopPropagation()}
           >
             <BulletMarkerMenu
@@ -381,10 +395,7 @@ export function GuideStepEditor({
         <div className="fixed inset-0 z-[60]" onPointerDown={() => setLinkMenu(null)}>
           <div
             className="absolute"
-            style={{
-              top: linkMenu.y + 10,
-              left: Math.min(linkMenu.x, window.innerWidth - LINK_MENU_WIDTH - 8),
-            }}
+            style={anchorMenu(linkMenu.x, linkMenu.y, LINK_MENU_WIDTH, LINK_MENU_HEIGHT)}
             onPointerDown={(event) => event.stopPropagation()}
           >
             <LinkItemMenu

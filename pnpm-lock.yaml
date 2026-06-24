@@ -18,8 +18,8 @@ importers:
         specifier: ^3.1.1
         version: 3.1.1
       '@openpawlabs/diy-guides-ui':
-        specifier: ^1.2.1
-        version: 1.2.1(online-3d-viewer@0.18.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^1.3.0
+        version: 1.3.0(online-3d-viewer@0.18.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tailwindcss/postcss':
         specifier: ^4.3.1
         version: 4.3.1
@@ -397,8 +397,8 @@ packages:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
 
-  '@openpawlabs/diy-guides-ui@1.2.1':
-    resolution: {integrity: sha512-JXzEW+dEgTVhsQ0kLm5NKHA5fIGZ0nYm88n/ARjMASnfqulOhFE0P+kUjWjZynu9TAQjR2xx94FUYIVrRFh08g==}
+  '@openpawlabs/diy-guides-ui@1.3.0':
+    resolution: {integrity: sha512-THwoyLfoSHyZppSLjGqaJSytdoaTPpL4105L9WhTDhHSDl9MFI9mUs2K0Yz3/0cwAW/omgRBcVblnNyjMPteLA==}
     peerDependencies:
       online-3d-viewer: ^0.18.0
       react: ^18.0.0 || ^19.0.0
@@ -2555,7 +2555,7 @@ snapshots:
       '@tybys/wasm-util': 0.10.3
     optional: true
 
-  '@openpawlabs/diy-guides-ui@1.2.1(online-3d-viewer@0.18.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@openpawlabs/diy-guides-ui@1.3.0(online-3d-viewer@0.18.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       online-3d-viewer: 0.18.0
       react: 19.2.7

@@ -119,6 +119,37 @@ describe("GuideEditor", () => {
     });
   });
 
+  it("adds and removes bullets in a structured step", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+    renderEditor("bullets-guide", directory);
+
+    await userEvent.click(await screen.findByRole("tab", { name: "1" }));
+
+    // A single bullet exposes no remove control.
+    expect(
+      screen.queryByRole("button", { name: "Remove bullet" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /new bullet/i }));
+    expect(
+      screen.getAllByRole("button", { name: "Remove bullet" }),
+    ).toHaveLength(2);
+
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Remove bullet" })[1],
+    );
+    expect(
+      screen.queryByRole("button", { name: "Remove bullet" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      const content = directory.files.get(GUIDE_MDX)?.content ?? "";
+      expect(content.match(/<GuideStep\.Bullet[ >]/g) ?? []).toHaveLength(1);
+      expect(screen.getByText("Saved")).toBeInTheDocument();
+    });
+  });
+
   it("switches between the Overview tab and a step", async () => {
     const directory = readyDirectory(blankGuideMdx);
     renderEditor("tabs-guide", directory);

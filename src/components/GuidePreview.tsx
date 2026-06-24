@@ -4,6 +4,7 @@ import {
   GuideLayout,
   GuideStep,
   GuideStepList,
+  LinkButton,
   MediaFigure,
   ToolList,
   type MediaFigureProps,
@@ -98,6 +99,7 @@ function createPreviewComponents(directory: FileSystemDirectoryHandle) {
     GuideLayout,
     GuideStep,
     GuideStepList,
+    LinkButton,
     MediaFigure: PreviewMediaFigure,
     ToolList,
   };

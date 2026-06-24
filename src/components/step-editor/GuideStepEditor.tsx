@@ -1,21 +1,25 @@
 import {
   GuideStep,
+  LinkButton,
   MediaFigure,
   type GuideStepMediaEditing,
 } from "@openpawlabs/diy-guides-ui";
 import { useRef, useState } from "react";
 import { useResolvedImageSrcs } from "../../hooks/useResolvedImageSrc";
-import { writeImageFile } from "../../lib/fs/guideFiles";
+import { writeDownloadFile, writeImageFile } from "../../lib/fs/guideFiles";
 import {
   createBlankBullet,
+  createBlankLinkItem,
   createStepMedia,
   MAX_STEP_MEDIA,
   type GuideBulletVariant,
   type GuideColor,
+  type LinkItemDraft,
   type StepDraft,
 } from "../../lib/mdx/structuredGuide";
 import { BulletMarkerMenu } from "./BulletMarkerMenu";
 import { InlineEditable } from "./InlineEditable";
+import { LinkItemMenu } from "./LinkItemMenu";
 
 interface GuideStepEditorProps {
   step: StepDraft;
@@ -25,8 +29,10 @@ interface GuideStepEditorProps {
 }
 
 type PendingUpload = "add" | { replace: number };
+type PendingDownload = { bulletId: string; index: number };
 
 const MENU_WIDTH = 224;
+const LINK_MENU_WIDTH = 288;
 
 /** Track which index the active selection lands on after a thumbnail is moved. */
 function indexAfterMove(current: number, from: number, to: number): number {
@@ -51,10 +57,18 @@ export function GuideStepEditor({
   const [menu, setMenu] = useState<{ bulletId: string; x: number; y: number } | null>(
     null,
   );
+  const [linkMenu, setLinkMenu] = useState<{
+    bulletId: string;
+    index: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const pointerRef = useRef({ x: 0, y: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingRef = useRef<PendingUpload | null>(null);
+  const downloadInputRef = useRef<HTMLInputElement>(null);
+  const downloadPendingRef = useRef<PendingDownload | null>(null);
 
   const resolvedSrcs = useResolvedImageSrcs(
     directory,
@@ -138,9 +152,82 @@ export function GuideStepEditor({
   const openMenu = (bulletId: string) =>
     setMenu({ bulletId, x: pointerRef.current.x, y: pointerRef.current.y });
 
+  const withLinks = (bullet: StepDraft["bullets"][number]) =>
+    (bullet.links ??= []);
+
+  const addLink = (bulletId: string) =>
+    updateBullet(bulletId, (bullet) =>
+      void withLinks(bullet).push(createBlankLinkItem()),
+    );
+
+  const removeLink = (bulletId: string, index: number) =>
+    updateBullet(bulletId, (bullet) => void bullet.links?.splice(index, 1));
+
+  const reorderLink = (bulletId: string, from: number, to: number) =>
+    updateBullet(bulletId, (bullet) => {
+      const links = bullet.links;
+      if (!links) return;
+      const [moved] = links.splice(from, 1);
+      links.splice(to, 0, moved);
+    });
+
+  const updateLinkAt = (
+    bulletId: string,
+    index: number,
+    mutate: (link: LinkItemDraft) => void,
+  ) =>
+    updateBullet(bulletId, (bullet) => {
+      const link = bullet.links?.[index];
+      if (link) {
+        mutate(link);
+      }
+    });
+
+  const openLinkMenu = (bulletId: string, index: number) =>
+    setLinkMenu({
+      bulletId,
+      index,
+      x: pointerRef.current.x,
+      y: pointerRef.current.y,
+    });
+
+  const pickDownloadFile = () => {
+    if (linkMenu) {
+      downloadPendingRef.current = {
+        bulletId: linkMenu.bulletId,
+        index: linkMenu.index,
+      };
+      downloadInputRef.current?.click();
+    }
+  };
+
+  const handleDownloadFile = async (file: File | undefined) => {
+    const pending = downloadPendingRef.current;
+    downloadPendingRef.current = null;
+    if (!pending || !file) {
+      return;
+    }
+
+    try {
+      const src = await writeDownloadFile(directory, file);
+      updateLinkAt(pending.bulletId, pending.index, (link) => {
+        link.href = src;
+        link.download = true;
+      });
+    } catch (error) {
+      console.error("Failed to save the download file to the guide folder.", error);
+    }
+  };
+
   const menuBullet = menu
     ? step.bullets.find((item) => item.id === menu.bulletId)
     : undefined;
+
+  const linkMenuLink =
+    linkMenu &&
+    step.bullets.find((item) => item.id === linkMenu.bulletId)?.links?.[
+      linkMenu.index
+    ];
 
   return (
     <div
@@ -158,6 +245,16 @@ export function GuideStepEditor({
           const files = Array.from(event.currentTarget.files ?? []);
           event.currentTarget.value = "";
           void handleFiles(files);
+        }}
+      />
+      <input
+        ref={downloadInputRef}
+        type="file"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = "";
+          void handleDownloadFile(file);
         }}
       />
 
@@ -188,14 +285,48 @@ export function GuideStepEditor({
               markerAriaLabel="Change bullet style"
               onMarkerPress={() => openMenu(bullet.id)}
             >
-              <InlineEditable
-                value={bullet.body}
-                placeholder="Describe this point"
-                ariaLabel="Bullet text"
-                onChange={(body) =>
-                  updateBullet(bullet.id, (item) => void (item.body = body))
-                }
-              />
+              {bullet.variant === "button" ? (
+                <LinkButton
+                  editing={{
+                    onAddItem: () => addLink(bullet.id),
+                    onRemoveItem: (index) => removeLink(bullet.id, index),
+                    onReorderItem: (from, to) =>
+                      reorderLink(bullet.id, from, to),
+                    onSelectItem: (index) => openLinkMenu(bullet.id, index),
+                  }}
+                >
+                  {(bullet.links ?? []).map((link, index) => (
+                    <LinkButton.Item
+                      key={link.id}
+                      href={link.href}
+                      download={link.download}
+                      external={link.external}
+                    >
+                      <InlineEditable
+                        value={link.label}
+                        placeholder="Button label"
+                        ariaLabel="Button label"
+                        onChange={(label) =>
+                          updateLinkAt(
+                            bullet.id,
+                            index,
+                            (item) => void (item.label = label),
+                          )
+                        }
+                      />
+                    </LinkButton.Item>
+                  ))}
+                </LinkButton>
+              ) : (
+                <InlineEditable
+                  value={bullet.body}
+                  placeholder="Describe this point"
+                  ariaLabel="Bullet text"
+                  onChange={(body) =>
+                    updateBullet(bullet.id, (item) => void (item.body = body))
+                  }
+                />
+              )}
             </GuideStep.Bullet>
           ))}
           <li className="list-none">
@@ -233,9 +364,35 @@ export function GuideStepEditor({
                 setMenu(null);
               }}
               onSelectVariant={(variant: GuideBulletVariant) => {
-                updateBullet(menu.bulletId, (bullet) => void (bullet.variant = variant));
+                updateBullet(menu.bulletId, (bullet) => {
+                  bullet.variant = variant;
+                  if (variant === "button" && !bullet.links?.length) {
+                    bullet.links = [createBlankLinkItem()];
+                  }
+                });
                 setMenu(null);
               }}
+            />
+          </div>
+        </div>
+      )}
+
+      {linkMenu && linkMenuLink && (
+        <div className="fixed inset-0 z-[60]" onPointerDown={() => setLinkMenu(null)}>
+          <div
+            className="absolute"
+            style={{
+              top: linkMenu.y + 10,
+              left: Math.min(linkMenu.x, window.innerWidth - LINK_MENU_WIDTH - 8),
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <LinkItemMenu
+              link={linkMenuLink}
+              onChange={(mutate) =>
+                updateLinkAt(linkMenu.bulletId, linkMenu.index, mutate)
+              }
+              onUploadFile={pickDownloadFile}
             />
           </div>
         </div>

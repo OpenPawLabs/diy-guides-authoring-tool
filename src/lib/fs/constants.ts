@@ -1,5 +1,6 @@
 export const GUIDE_MDX = "guide.mdx";
 export const IMAGES_DIR = "images";
+export const FILES_DIR = "files";
 
 export const GUIDE_DB = "diy-guides-authoring-tool";
 export const GUIDE_DB_VERSION = 2;

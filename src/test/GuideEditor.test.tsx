@@ -95,6 +95,30 @@ describe("GuideEditor", () => {
     });
   });
 
+  it("converts a bullet into a download button and saves LinkButton MDX", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+    renderEditor("button-bullet-guide", directory);
+
+    await userEvent.click(await screen.findByRole("tab", { name: "1" }));
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Change bullet style" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Button" }));
+
+    expect(
+      screen.getByRole("button", { name: "More download options" }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const content = directory.files.get(GUIDE_MDX)?.content ?? "";
+      expect(content).toContain('<GuideStep.Bullet variant="button">');
+      expect(content).toContain("<LinkButton>");
+    });
+  });
+
   it("switches between the Overview tab and a step", async () => {
     const directory = readyDirectory(blankGuideMdx);
     renderEditor("tabs-guide", directory);

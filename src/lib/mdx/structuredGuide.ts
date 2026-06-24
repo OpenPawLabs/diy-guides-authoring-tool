@@ -14,7 +14,13 @@ export const guideColors = [
   "BLUE",
   "MAGENTA",
 ] as const;
-export const bulletVariants = ["dot", "caution", "reminder", "note"] as const;
+export const bulletVariants = [
+  "dot",
+  "caution",
+  "reminder",
+  "note",
+  "button",
+] as const;
 
 export type GuideDifficulty = (typeof guideDifficulties)[number];
 export type GuideCalloutType = (typeof calloutTypes)[number];
@@ -79,6 +85,20 @@ export interface BulletDraft {
   variant: GuideBulletVariant;
   color: GuideColor;
   body: string;
+  /** Links for a `button` bullet — rendered through `LinkButton`. */
+  links?: LinkItemDraft[];
+}
+
+export interface LinkItemDraft {
+  id: string;
+  /** Visible label. */
+  label: string;
+  /** URL to navigate to, or a (relative) file path to download. */
+  href: string;
+  /** Download instead of navigate; a string renames the downloaded file. */
+  download?: boolean | string;
+  /** Open in a new tab. */
+  external?: boolean;
 }
 
 export type StructuredGuideParseResult =
@@ -281,6 +301,15 @@ export function createBlankBullet(): BulletDraft {
   };
 }
 
+export function createBlankLinkItem(): LinkItemDraft {
+  return {
+    id: createDraftId("link"),
+    label: "Download",
+    href: "",
+    download: true,
+  };
+}
+
 function parseHeader(node: MdxNode): GuideHeaderDraft {
   return {
     title: stringAttribute(node, "title") ?? "",
@@ -409,12 +438,58 @@ function parseBullet(
     );
   }
 
+  const variant = enumAttribute(bullet, "variant", bulletVariants, "dot");
+
+  if (variant === "button") {
+    return {
+      id: `bullet-${stepIndex + 1}-${bulletIndex + 1}`,
+      variant,
+      color: "GREY",
+      body: "",
+      links: parseLinkItems(source, bullet, stepIndex, bulletIndex, warnings),
+    };
+  }
+
   return {
     id: `bullet-${stepIndex + 1}-${bulletIndex + 1}`,
-    variant: enumAttribute(bullet, "variant", bulletVariants, "dot"),
+    variant,
     color: enumAttribute(bullet, "color", guideColors, "GREY"),
     body: innerMdx(source, bullet),
   };
+}
+
+function parseLinkItems(
+  source: string,
+  bullet: MdxNode,
+  stepIndex: number,
+  bulletIndex: number,
+  warnings: string[],
+): LinkItemDraft[] {
+  const linkButton = findChildElement(bullet, "LinkButton");
+  if (!linkButton) {
+    throw new Error(
+      `Button bullet ${bulletIndex + 1} in step ${stepIndex + 1} needs a <LinkButton>. Use Raw MDX for other content.`,
+    );
+  }
+
+  return childElements(linkButton, "LinkButton.Item").map((item, index) => {
+    const unsupported = attributeNames(item).filter(
+      (name) => !["href", "download", "external"].includes(name),
+    );
+    if (unsupported.length > 0) {
+      warnings.push(
+        `Link ${index + 1} in step ${stepIndex + 1} has unsupported attributes: ${unsupported.join(", ")}.`,
+      );
+    }
+
+    return {
+      id: `link-${stepIndex + 1}-${bulletIndex + 1}-${index + 1}`,
+      label: innerMdx(source, item),
+      href: stringAttribute(item, "href") ?? "",
+      download: downloadAttribute(item),
+      external: flagAttribute(item, "external") || undefined,
+    };
+  });
 }
 
 function serializeHeader(header: GuideHeaderDraft): string {
@@ -532,6 +607,10 @@ function serializeStepMedia(media: StepMediaDraft[]): string {
 }
 
 function serializeBullet(bullet: BulletDraft): string {
+  if (bullet.variant === "button") {
+    return serializeButtonBullet(bullet);
+  }
+
   const attrs = [
     bullet.variant !== "dot" ? `variant="${bullet.variant}"` : undefined,
     bullet.variant === "dot" && bullet.color !== "GREY"
@@ -545,6 +624,35 @@ function serializeBullet(bullet: BulletDraft): string {
     indentMdx(bullet.body, 12),
     "          </GuideStep.Bullet>",
   ].join("\n");
+}
+
+function serializeButtonBullet(bullet: BulletDraft): string {
+  const items =
+    bullet.links && bullet.links.length > 0
+      ? bullet.links
+      : [createBlankLinkItem()];
+
+  return [
+    '          <GuideStep.Bullet variant="button">',
+    "            <LinkButton>",
+    items.map(serializeLinkItem).join("\n"),
+    "            </LinkButton>",
+    "          </GuideStep.Bullet>",
+  ].join("\n");
+}
+
+function serializeLinkItem(item: LinkItemDraft): string {
+  const attrs = [
+    `href="${escapeAttribute(item.href)}"`,
+    item.download === true
+      ? "download"
+      : typeof item.download === "string" && item.download
+        ? `download="${escapeAttribute(item.download)}"`
+        : undefined,
+    item.external ? "external" : undefined,
+  ].filter(Boolean);
+
+  return `              <LinkButton.Item ${attrs.join(" ")}>${item.label.trim() || "Download"}</LinkButton.Item>`;
 }
 
 function findFirstElement(node: MdxNode, name: string): MdxNode | null {
@@ -614,6 +722,39 @@ function enumAttribute<T extends string>(
 
 function expressionValue(value: MdxAttribute["value"]): string | undefined {
   return typeof value === "object" && value !== null ? value.value : undefined;
+}
+
+/** Read a boolean JSX attribute: bare (`external`), `external="true"`, or `external={true}`. */
+function flagAttribute(node: MdxNode, name: string): boolean {
+  const attr = node.attributes?.find((candidate) => candidate.name === name);
+  if (!attr) {
+    return false;
+  }
+  if (attr.value == null) {
+    return true;
+  }
+  const raw =
+    typeof attr.value === "string" ? attr.value : expressionValue(attr.value);
+  return raw?.trim() !== "false";
+}
+
+/** Read the `download` attribute, which may be a boolean flag or a filename string. */
+function downloadAttribute(node: MdxNode): boolean | string | undefined {
+  const attr = node.attributes?.find((candidate) => candidate.name === "download");
+  if (!attr) {
+    return undefined;
+  }
+  if (attr.value == null) {
+    return true;
+  }
+  if (typeof attr.value === "string") {
+    return attr.value;
+  }
+  const raw = expressionValue(attr.value)?.trim();
+  if (raw === "false") {
+    return false;
+  }
+  return raw === "true" || raw == null ? true : raw;
 }
 
 function attributeNames(node: MdxNode): string[] {

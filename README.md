@@ -24,13 +24,18 @@ repository locally, open the authoring site, open a guide folder, and edit
 - Edits step titles and bullet text inline, sets bullet color/variant from the
   marker, adds/reorders/removes steps and bullets, and uploads up to three images
   per step (drag/click into the empty frame, "+" tile, click-to-replace, remove).
+- Turns a bullet into a **download button** (`Button` variant) backed by the
+  `LinkButton` component: edit the primary label inline, manage alternative files
+  behind the dropdown (add, reorder, "make default", remove), and set each option's
+  URL/path, download/new-tab behavior, or upload a file into `files/`.
 - Shows the guide header (title, difficulty, time estimate, meta) in a compact
   "Guide details" card above the editor, and keeps the intro, tools and parts,
   and callouts in an "Overview" tab placed before the numbered steps.
 - Keeps raw MDX available (with a compiled preview) for custom content and guide
   shapes the structured editor does not support yet.
-- Imports images into `images/` under a sanitized, de-duplicated file name and
-  resolves `./images/...` paths from the selected guide folder.
+- Imports images into `images/` and downloadable assets into `files/` under a
+  sanitized, de-duplicated file name, and resolves `./images/...` paths from the
+  selected guide folder.
 - Mirrors unsaved edits to IndexedDB so a refresh or dropped permission never
   loses work, and restores them automatically on the next load.
 - Hashes the loaded `guide.mdx` and, when the file changes on disk while edits

@@ -32,6 +32,7 @@ const variantLabels: Record<GuideBulletVariant, string> = {
   caution: "Caution",
   reminder: "Reminder",
   note: "Note",
+  button: "Button",
 };
 
 /**

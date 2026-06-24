@@ -1,5 +1,5 @@
 import { blankGuideMdx } from "../templates/blankGuideMdx";
-import { GUIDE_MDX, IMAGES_DIR } from "./constants";
+import { FILES_DIR, GUIDE_MDX, IMAGES_DIR } from "./constants";
 import { sanitizeImageName, uniqueImageName } from "./imageNames";
 import { ensureReadWritePermission, isMissingEntryError } from "./permissions";
 import type {
@@ -122,12 +122,45 @@ export async function writeImageFile(
 export async function ensureImagesDirectory(
   directory: FileSystemDirectoryHandle,
 ): Promise<FileSystemDirectoryHandle> {
-  const images = await directory.getDirectoryHandle(IMAGES_DIR, { create: true });
-  const keepFile = await images.getFileHandle(KEEP_FILE, { create: true });
+  return ensureAssetDirectory(directory, IMAGES_DIR);
+}
+
+/**
+ * Write a downloadable asset (a 3D model, PDF, archive, …) into the guide's
+ * `files/` directory under a safe, de-duplicated name and return the relative MDX
+ * source path (`./files/<name>`).
+ */
+export async function writeDownloadFile(
+  directory: FileSystemDirectoryHandle,
+  file: File,
+): Promise<string> {
+  await ensureReadWritePermission(directory);
+  const files = await ensureAssetDirectory(directory, FILES_DIR);
+
+  const existing: string[] = [];
+  for await (const name of files.keys()) {
+    existing.push(name);
+  }
+
+  const fileName = uniqueImageName(sanitizeImageName(file.name), existing);
+  const handle = await files.getFileHandle(fileName, { create: true });
+  const writable = await handle.createWritable();
+  await writable.write(file);
+  await writable.close();
+
+  return `./${FILES_DIR}/${fileName}`;
+}
+
+async function ensureAssetDirectory(
+  directory: FileSystemDirectoryHandle,
+  name: string,
+): Promise<FileSystemDirectoryHandle> {
+  const assets = await directory.getDirectoryHandle(name, { create: true });
+  const keepFile = await assets.getFileHandle(KEEP_FILE, { create: true });
   const writable = await keepFile.createWritable();
   await writable.write("");
   await writable.close();
-  return images;
+  return assets;
 }
 
 async function getGuideFileStatus(

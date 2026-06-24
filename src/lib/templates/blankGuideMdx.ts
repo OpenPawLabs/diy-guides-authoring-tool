@@ -3,6 +3,7 @@ export const blankGuideMdx = `import {
   GuideLayout,
   GuideStep,
   GuideStepList,
+  LinkButton,
   MediaFigure,
   ToolList,
 } from "@openpawlabs/diy-guides-ui";

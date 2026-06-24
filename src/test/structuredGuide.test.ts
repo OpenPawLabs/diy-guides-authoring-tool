@@ -140,6 +140,95 @@ ${blankGuideMdx}
     });
   });
 
+  it("round-trips a button bullet through LinkButton MDX", async () => {
+    const parsed = parseStructuredGuide(blankGuideMdx);
+    expect(parsed.status).toBe("supported");
+    if (parsed.status !== "supported") {
+      return;
+    }
+
+    parsed.draft.steps[0].bullets = [
+      {
+        id: "b1",
+        variant: "button",
+        color: "GREY",
+        body: "",
+        links: [
+          {
+            id: "l1",
+            label: "Download 3MF",
+            href: "./files/model.3mf",
+            download: true,
+          },
+          {
+            id: "l2",
+            label: "Download STL",
+            href: "./files/model.stl",
+            download: "model.stl",
+          },
+          {
+            id: "l3",
+            label: "View online",
+            href: "https://example.com",
+            external: true,
+          },
+        ],
+      },
+    ];
+
+    const source = serializeGuideLayout(parsed.draft);
+    expect(source).toContain('<GuideStep.Bullet variant="button">');
+    expect(source).toContain(
+      '<LinkButton.Item href="./files/model.3mf" download>Download 3MF</LinkButton.Item>',
+    );
+    expect(source).toContain(
+      '<LinkButton.Item href="./files/model.stl" download="model.stl">Download STL</LinkButton.Item>',
+    );
+    expect(source).toContain(
+      '<LinkButton.Item href="https://example.com" external>View online</LinkButton.Item>',
+    );
+    await expect(compileGuideMdx(source)).resolves.toEqual({
+      Content: expect.any(Function),
+    });
+
+    const reparsed = parseStructuredGuide(source);
+    expect(reparsed.status).toBe("supported");
+    if (reparsed.status !== "supported") {
+      return;
+    }
+    const bullet = reparsed.draft.steps[0].bullets[0];
+    expect(bullet.variant).toBe("button");
+    expect(bullet.links).toEqual([
+      expect.objectContaining({
+        label: "Download 3MF",
+        href: "./files/model.3mf",
+        download: true,
+      }),
+      expect.objectContaining({
+        label: "Download STL",
+        href: "./files/model.stl",
+        download: "model.stl",
+      }),
+      expect.objectContaining({
+        label: "View online",
+        href: "https://example.com",
+        external: true,
+      }),
+    ]);
+  });
+
+  it("treats a button bullet without a LinkButton as unsupported", () => {
+    const source = blankGuideMdx.replace(
+      "          <GuideStep.Bullet>\n            Replace this placeholder instruction with the first action.\n          </GuideStep.Bullet>",
+      '          <GuideStep.Bullet variant="button">\n            Just text, no button.\n          </GuideStep.Bullet>',
+    );
+
+    expect(parseStructuredGuide(source)).toMatchObject({
+      status: "unsupported",
+      reason: expect.stringContaining("LinkButton"),
+    });
+  });
+
   it("routes MediaFigure annotations to raw MDX", () => {
     const source = blankGuideMdx.replace(
       '<MediaFigure src="./images/placeholder.jpg" />',

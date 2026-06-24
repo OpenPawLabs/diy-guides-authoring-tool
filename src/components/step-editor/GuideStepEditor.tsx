@@ -3,6 +3,7 @@ import {
   LinkButton,
   MediaFigure,
   type GuideStepMediaEditing,
+  type MediaDisplayRegion,
 } from "@openpawlabs/diy-guides-ui";
 import { useRef, useState } from "react";
 import { useResolvedImageSrcs } from "../../hooks/useResolvedImageSrc";
@@ -18,6 +19,7 @@ import {
   type StepDraft,
 } from "../../lib/mdx/structuredGuide";
 import { AnnotationEditorModal } from "./AnnotationEditorModal";
+import { CropEditorModal } from "./CropEditorModal";
 import { BulletMarkerMenu } from "./BulletMarkerMenu";
 import { InlineEditable } from "./InlineEditable";
 import { LinkItemMenu } from "./LinkItemMenu";
@@ -71,6 +73,7 @@ export function GuideStepEditor({
 }: GuideStepEditorProps) {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [annotatingIndex, setAnnotatingIndex] = useState<number | null>(null);
+  const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ bulletId: string; x: number; y: number } | null>(
     null,
   );
@@ -124,6 +127,7 @@ export function GuideStepEditor({
     onSelectImage: setActiveMediaIndex,
     onAddImage: () => fileInputRef.current?.click(),
     onEditAnnotations: (index) => setAnnotatingIndex(index),
+    onEditCrop: (index) => setCroppingIndex(index),
     onRemoveImage: (index) =>
       onStepChange((draft) => {
         draft.media.splice(index, 1);
@@ -221,6 +225,9 @@ export function GuideStepEditor({
   const annotatingMedia =
     annotatingIndex !== null ? step.media[annotatingIndex] : undefined;
 
+  const croppingMedia =
+    croppingIndex !== null ? step.media[croppingIndex] : undefined;
+
   const menuBullet = menu
     ? step.bullets.find((item) => item.id === menu.bulletId)
     : undefined;
@@ -279,6 +286,7 @@ export function GuideStepEditor({
               key={item.id}
               src={resolvedSrcs[index]}
               annotations={item.annotations}
+              displayRegion={item.displayRegion}
             />
           ))}
         </GuideStep.Media>
@@ -410,6 +418,25 @@ export function GuideStepEditor({
             const target = draft.media[annotatingIndex];
             if (target) {
               recipe((target.annotations ??= []));
+            }
+          })
+        }
+      />
+
+      <CropEditorModal
+        isOpen={croppingIndex !== null}
+        src={croppingIndex !== null ? (resolvedSrcs[croppingIndex] ?? "") : ""}
+        region={croppingMedia?.displayRegion}
+        onClose={() => setCroppingIndex(null)}
+        onChange={(region: MediaDisplayRegion | undefined) =>
+          onStepChange((draft) => {
+            if (croppingIndex === null) return;
+            const target = draft.media[croppingIndex];
+            if (!target) return;
+            if (region) {
+              target.displayRegion = region;
+            } else {
+              delete target.displayRegion;
             }
           })
         }

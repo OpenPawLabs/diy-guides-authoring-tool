@@ -294,4 +294,92 @@ ${blankGuideMdx}
       reason: expect.stringContaining("Raw MDX"),
     });
   });
+
+  it("round-trips a MediaFigure displayRegion", async () => {
+    const parsed = parseStructuredGuide(blankGuideMdx);
+    expect(parsed.status).toBe("supported");
+    if (parsed.status !== "supported") {
+      return;
+    }
+
+    parsed.draft.steps[0].media = [
+      { id: "m1", src: "./images/one.jpg", displayRegion: { x: 320, y: 90, width: 640 } },
+    ];
+
+    const source = serializeGuideLayout(parsed.draft);
+    expect(source).toContain("displayRegion={{ x: 320, y: 90, width: 640 }}");
+    await expect(compileGuideMdx(source)).resolves.toEqual({
+      Content: expect.any(Function),
+    });
+
+    const reparsed = parseStructuredGuide(source);
+    expect(reparsed.status).toBe("supported");
+    if (reparsed.status !== "supported") {
+      return;
+    }
+    expect(reparsed.draft.steps[0].media[0].displayRegion).toEqual({
+      x: 320,
+      y: 90,
+      width: 640,
+    });
+  });
+
+  it("round-trips a displayRegion alongside annotations", () => {
+    const parsed = parseStructuredGuide(blankGuideMdx);
+    expect(parsed.status).toBe("supported");
+    if (parsed.status !== "supported") {
+      return;
+    }
+
+    parsed.draft.steps[0].media = [
+      {
+        id: "m1",
+        src: "./images/one.jpg",
+        displayRegion: { x: 10, y: 20, width: 800 },
+        annotations: [{ id: "a1", type: "point", x: 50, y: 50, label: 1 }],
+      },
+    ];
+
+    const source = serializeGuideLayout(parsed.draft);
+    expect(source).toContain("displayRegion={{ x: 10, y: 20, width: 800 }}");
+    expect(source).toContain("annotations={[");
+
+    const reparsed = parseStructuredGuide(source);
+    expect(reparsed.status).toBe("supported");
+    if (reparsed.status !== "supported") {
+      return;
+    }
+    expect(reparsed.draft.steps[0].media[0]).toMatchObject({
+      displayRegion: { x: 10, y: 20, width: 800 },
+      annotations: [expect.objectContaining({ type: "point", x: 50, y: 50, label: 1 })],
+    });
+  });
+
+  it("rounds a fractional displayRegion to whole source pixels", () => {
+    const parsed = parseStructuredGuide(blankGuideMdx);
+    if (parsed.status !== "supported") {
+      expect(parsed.status).toBe("supported");
+      return;
+    }
+
+    parsed.draft.steps[0].media = [
+      { id: "m1", src: "./images/one.jpg", displayRegion: { x: 12.4, y: 8.6, width: 640.5 } },
+    ];
+
+    expect(serializeGuideLayout(parsed.draft)).toContain(
+      "displayRegion={{ x: 12, y: 9, width: 641 }}",
+    );
+  });
+
+  it("routes a non-literal displayRegion expression to raw MDX", () => {
+    const source = blankGuideMdx.replace(
+      '<MediaFigure src="./images/placeholder.jpg" />',
+      '<MediaFigure src="./images/placeholder.jpg" displayRegion={computeRegion()} />',
+    );
+
+    expect(parseStructuredGuide(source)).toMatchObject({
+      status: "unsupported",
+      reason: expect.stringContaining("Raw MDX"),
+    });
+  });
 });

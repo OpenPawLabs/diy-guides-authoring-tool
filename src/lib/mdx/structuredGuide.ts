@@ -1,7 +1,7 @@
 import { unified } from "unified";
 import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
-import type { MediaAnnotation } from "@openpawlabs/diy-guides-ui";
+import type { MediaAnnotation, MediaDisplayRegion } from "@openpawlabs/diy-guides-ui";
 
 export const guideDifficulties = ["easy", "moderate", "difficult"] as const;
 export const calloutTypes = ["note", "info", "tip", "caution", "danger"] as const;
@@ -81,6 +81,8 @@ export interface StepMediaDraft {
   src: string;
   /** Overlay markers, positioned by percentage of the visible 4:3 frame. */
   annotations?: MediaAnnotation[];
+  /** 4:3 crop in source pixels; omit to center-crop a non-4:3 source. */
+  displayRegion?: MediaDisplayRegion;
 }
 
 /** Annotation types the structured editor can round-trip through MDX. */
@@ -416,20 +418,22 @@ function parseSteps(
 
     const stepMedia = figures.map((figure, figureIndex) => {
       const unsupportedFigureAttrs = attributeNames(figure).filter(
-        (name) => name !== "src" && name !== "annotations",
+        (name) => !["src", "annotations", "displayRegion"].includes(name),
       );
       if (unsupportedFigureAttrs.length > 0) {
         throw new Error(
-          `MediaFigure has unsupported attributes: ${unsupportedFigureAttrs.join(", ")}. Use Raw MDX for display regions.`,
+          `MediaFigure has unsupported attributes: ${unsupportedFigureAttrs.join(", ")}. Use Raw MDX.`,
         );
       }
 
       const prefix = `step-${index + 1}-media-${figureIndex + 1}`;
       const annotations = parseAnnotations(figure, prefix);
+      const displayRegion = parseDisplayRegion(figure);
       return {
         id: prefix,
         src: stringAttribute(figure, "src") ?? "",
         ...(annotations.length > 0 ? { annotations } : {}),
+        ...(displayRegion ? { displayRegion } : {}),
       };
     });
 
@@ -472,6 +476,38 @@ function parseAnnotations(figure: MdxNode, idPrefix: string): MediaAnnotation[] 
   return value.map((item, index) =>
     normalizeAnnotation(item, `${idPrefix}-annotation-${index + 1}`),
   );
+}
+
+/** Read a `MediaFigure` `displayRegion={{ x, y, width }}` attribute as a literal region. */
+function parseDisplayRegion(figure: MdxNode): MediaDisplayRegion | undefined {
+  const attr = figure.attributes?.find(
+    (candidate) => candidate.name === "displayRegion",
+  );
+  if (!attr) {
+    return undefined;
+  }
+
+  const estree = typeof attr.value === "object" ? attr.value?.data?.estree : undefined;
+  const statement = estree?.body?.[0];
+  if (!statement || statement.type !== "ExpressionStatement" || !statement.expression) {
+    throw new Error("MediaFigure displayRegion must be a literal object. Use Raw MDX.");
+  }
+
+  const value = evaluateLiteral(statement.expression);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("MediaFigure displayRegion must be a literal object. Use Raw MDX.");
+  }
+
+  const data = value as Record<string, unknown>;
+  const num = (key: string): number => {
+    const raw = data[key];
+    if (typeof raw !== "number" || !Number.isFinite(raw)) {
+      throw new Error(`MediaFigure displayRegion needs a numeric "${key}". Use Raw MDX.`);
+    }
+    return raw;
+  };
+
+  return { x: num("x"), y: num("y"), width: num("width") };
 }
 
 /** Statically evaluate an ESTree node, allowing only JSON-like literal syntax. */
@@ -747,20 +783,35 @@ function serializeStepMedia(media: StepMediaDraft[]): string {
 
 function serializeFigure(item: StepMediaDraft): string {
   const src = escapeAttribute(item.src);
-  if (!item.annotations || item.annotations.length === 0) {
+  const hasAnnotations = item.annotations != null && item.annotations.length > 0;
+  const hasRegion = item.displayRegion != null;
+
+  if (!hasAnnotations && !hasRegion) {
     return `          <MediaFigure src="${src}" />`;
   }
 
-  return [
-    "          <MediaFigure",
-    `            src="${src}"`,
-    "            annotations={[",
-    item.annotations
-      .map((annotation) => `              ${serializeAnnotation(annotation)},`)
-      .join("\n"),
-    "            ]}",
-    "          />",
-  ].join("\n");
+  const lines = ["          <MediaFigure", `            src="${src}"`];
+
+  if (hasRegion) {
+    const round = (value: number) => Math.round(value);
+    const { x, y, width } = item.displayRegion!;
+    lines.push(
+      `            displayRegion={{ x: ${round(x)}, y: ${round(y)}, width: ${round(width)} }}`,
+    );
+  }
+
+  if (hasAnnotations) {
+    lines.push(
+      "            annotations={[",
+      item.annotations!
+        .map((annotation) => `              ${serializeAnnotation(annotation)},`)
+        .join("\n"),
+      "            ]}",
+    );
+  }
+
+  lines.push("          />");
+  return lines.join("\n");
 }
 
 function serializeAnnotation(annotation: MediaAnnotation): string {

@@ -9,6 +9,11 @@ import { useRef, useState } from "react";
 import { useResolvedImageSrcs } from "../../hooks/useResolvedImageSrc";
 import { writeDownloadFile, writeImageFile } from "../../lib/fs/guideFiles";
 import {
+  isSupportedMediaFile,
+  mediaTypeFromFile,
+  STEP_MEDIA_FILE_ACCEPT,
+} from "../../lib/mediaTypes";
+import {
   createBlankBullet,
   createBlankLinkItem,
   createStepMedia,
@@ -99,35 +104,50 @@ export function GuideStepEditor({
     : 0;
 
   const handleAddFiles = async (files: File[]) => {
-    if (files.length === 0) {
+    const supported = files.filter(isSupportedMediaFile);
+    if (supported.length === 0) {
+      if (files.length > 0) {
+        console.warn(
+          "Unsupported media file type. Use JPG, PNG, WebP, MP4, M4V, 3MF, STL, or STEP.",
+        );
+      }
       return;
     }
 
     try {
       const room = Math.max(MAX_STEP_MEDIA - step.media.length, 0);
-      const srcs: string[] = [];
-      for (const file of files.slice(0, room)) {
-        srcs.push(await writeImageFile(directory, file));
+      const additions: ReturnType<typeof createStepMedia>[] = [];
+      for (const file of supported.slice(0, room)) {
+        const src = await writeImageFile(directory, file);
+        additions.push(createStepMedia(src, mediaTypeFromFile(file) ?? "image"));
       }
       onStepChange((draft) => {
-        for (const src of srcs) {
+        for (const media of additions) {
           if (draft.media.length < MAX_STEP_MEDIA) {
-            draft.media.push(createStepMedia(src));
+            draft.media.push(media);
           }
         }
       });
       setActiveMediaIndex(step.media.length);
     } catch (error) {
-      console.error("Failed to save image to the chapter folder.", error);
+      console.error("Failed to save media to the chapter folder.", error);
     }
   };
+
+  const activeMedia = step.media[activeIndex];
+  const activeMediaType = activeMedia?.type ?? "image";
+  const canEditImageMedia = activeMediaType === "image";
 
   const mediaEditing: GuideStepMediaEditing = {
     activeIndex,
     onSelectImage: setActiveMediaIndex,
     onAddImage: () => fileInputRef.current?.click(),
-    onEditAnnotations: (index) => setAnnotatingIndex(index),
-    onEditCrop: (index) => setCroppingIndex(index),
+    ...(canEditImageMedia
+      ? {
+          onEditAnnotations: (index: number) => setAnnotatingIndex(index),
+          onEditCrop: (index: number) => setCroppingIndex(index),
+        }
+      : {}),
     onRemoveImage: (index) =>
       onStepChange((draft) => {
         draft.media.splice(index, 1);
@@ -247,7 +267,7 @@ export function GuideStepEditor({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={STEP_MEDIA_FILE_ACCEPT}
         multiple
         className="hidden"
         onChange={(event) => {
@@ -285,6 +305,7 @@ export function GuideStepEditor({
             <MediaFigure
               key={item.id}
               src={resolvedSrcs[index]}
+              type={item.type}
               annotations={item.annotations}
               displayRegion={item.displayRegion}
             />

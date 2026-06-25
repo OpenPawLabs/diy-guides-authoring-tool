@@ -76,9 +76,13 @@ export interface StepDraft {
   bullets: BulletDraft[];
 }
 
+export type StepMediaType = "image" | "video" | "model";
+
 export interface StepMediaDraft {
   id: string;
   src: string;
+  /** Defaults to `"image"` when omitted. */
+  type?: StepMediaType;
   /** Overlay markers, positioned by percentage of the visible 4:3 frame. */
   annotations?: MediaAnnotation[];
   /** 4:3 crop in source pixels; omit to center-crop a non-4:3 source. */
@@ -316,8 +320,15 @@ export function createBlankStep(): StepDraft {
   };
 }
 
-export function createStepMedia(src = ""): StepMediaDraft {
-  return { id: createDraftId("step-media"), src };
+export function createStepMedia(
+  src = "",
+  type: StepMediaType = "image",
+): StepMediaDraft {
+  return {
+    id: createDraftId("step-media"),
+    src,
+    ...(type !== "image" ? { type } : {}),
+  };
 }
 
 export function createBlankBullet(): BulletDraft {
@@ -418,7 +429,7 @@ function parseSteps(
 
     const stepMedia = figures.map((figure, figureIndex) => {
       const unsupportedFigureAttrs = attributeNames(figure).filter(
-        (name) => !["src", "annotations", "displayRegion"].includes(name),
+        (name) => !["src", "type", "annotations", "displayRegion"].includes(name),
       );
       if (unsupportedFigureAttrs.length > 0) {
         throw new Error(
@@ -427,11 +438,13 @@ function parseSteps(
       }
 
       const prefix = `step-${index + 1}-media-${figureIndex + 1}`;
+      const type = parseMediaType(figure);
       const annotations = parseAnnotations(figure, prefix);
       const displayRegion = parseDisplayRegion(figure);
       return {
         id: prefix,
         src: stringAttribute(figure, "src") ?? "",
+        ...(type !== "image" ? { type } : {}),
         ...(annotations.length > 0 ? { annotations } : {}),
         ...(displayRegion ? { displayRegion } : {}),
       };
@@ -453,6 +466,19 @@ function parseSteps(
       bullets: parsedBullets,
     };
   });
+}
+
+function parseMediaType(figure: MdxNode): StepMediaType {
+  const value = stringAttribute(figure, "type");
+  if (!value || value === "image") {
+    return "image";
+  }
+  if (value === "video" || value === "model") {
+    return value;
+  }
+  throw new Error(
+    `MediaFigure type must be "image", "video", or "model". Use Raw MDX.`,
+  );
 }
 
 /** Read a `MediaFigure` `annotations={[…]}` attribute as literal annotation data. */
@@ -783,14 +809,18 @@ function serializeStepMedia(media: StepMediaDraft[]): string {
 
 function serializeFigure(item: StepMediaDraft): string {
   const src = escapeAttribute(item.src);
+  const mediaType = item.type ?? "image";
   const hasAnnotations = item.annotations != null && item.annotations.length > 0;
   const hasRegion = item.displayRegion != null;
 
-  if (!hasAnnotations && !hasRegion) {
+  if (mediaType === "image" && !hasAnnotations && !hasRegion) {
     return `          <MediaFigure src="${src}" />`;
   }
 
   const lines = ["          <MediaFigure", `            src="${src}"`];
+  if (mediaType !== "image") {
+    lines.push(`            type="${mediaType}"`);
+  }
 
   if (hasRegion) {
     const round = (value: number) => Math.round(value);

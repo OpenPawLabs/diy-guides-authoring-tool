@@ -382,4 +382,35 @@ ${blankGuideMdx}
       reason: expect.stringContaining("Raw MDX"),
     });
   });
+
+  it("round-trips MediaFigure video and model types", () => {
+    const parsed = parseStructuredGuide(blankGuideMdx);
+    if (parsed.status !== "supported") {
+      expect(parsed.status).toBe("supported");
+      return;
+    }
+
+    parsed.draft.steps[0].media = [
+      { id: "m1", src: "./images/clip.mp4", type: "video" },
+      { id: "m2", src: "./images/part.stl", type: "model" },
+    ];
+
+    const source = serializeGuideLayout(parsed.draft);
+    expect(source).toContain(
+      '<MediaFigure\n            src="./images/clip.mp4"\n            type="video"\n          />',
+    );
+    expect(source).toContain(
+      '<MediaFigure\n            src="./images/part.stl"\n            type="model"\n          />',
+    );
+
+    const reparsed = parseStructuredGuide(source);
+    if (reparsed.status !== "supported") {
+      expect(reparsed.status).toBe("supported");
+      return;
+    }
+    expect(reparsed.draft.steps[0].media).toEqual([
+      { id: "step-1-media-1", src: "./images/clip.mp4", type: "video" },
+      { id: "step-1-media-2", src: "./images/part.stl", type: "model" },
+    ]);
+  });
 });

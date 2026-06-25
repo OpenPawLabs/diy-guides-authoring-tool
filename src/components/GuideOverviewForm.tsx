@@ -14,9 +14,11 @@ import {
   TextAreaField,
   TextField,
 } from "./GuideFormFields";
+import { ToolItemThumbnailField } from "./ToolItemThumbnailField";
 
 interface GuideOverviewFormProps {
   draft: GuideDraft;
+  directory: FileSystemDirectoryHandle;
   updateDraft: (mutate: (draft: GuideDraft) => void) => void;
 }
 
@@ -25,7 +27,11 @@ interface GuideOverviewFormProps {
  * lists, and callouts. Rendered from the step navigator's Overview tab. The guide
  * header fields live in {@link GuideDetailsCard}.
  */
-export function GuideOverviewForm({ draft, updateDraft }: GuideOverviewFormProps) {
+export function GuideOverviewForm({
+  draft,
+  directory,
+  updateDraft,
+}: GuideOverviewFormProps) {
   return (
     <div className="flex flex-col gap-4">
       <Section title="Intro">
@@ -105,7 +111,7 @@ export function GuideOverviewForm({ draft, updateDraft }: GuideOverviewFormProps
                         key={item.id}
                         className="rounded-xl border border-default-200 bg-default-50 p-3"
                       >
-                        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem]">
+                        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem_auto]">
                           <TextField
                             label="Item name"
                             value={item.name}
@@ -126,8 +132,18 @@ export function GuideOverviewForm({ draft, updateDraft }: GuideOverviewFormProps
                               })
                             }
                           />
+                          <ToolItemThumbnailField
+                            directory={directory}
+                            thumbnail={item.thumbnail}
+                            onChange={(thumbnail) =>
+                              updateDraft((next) => {
+                                next.toolLists[listIndex].items[itemIndex].thumbnail =
+                                  thumbnail;
+                              })
+                            }
+                          />
                         </div>
-                        <div className="mt-3 grid gap-3 md:grid-cols-3">
+                        <div className="mt-3 grid gap-3 md:grid-cols-2">
                           <TextField
                             label="Link"
                             value={item.href ?? ""}
@@ -144,16 +160,6 @@ export function GuideOverviewForm({ draft, updateDraft }: GuideOverviewFormProps
                             onChange={(value) =>
                               updateDraft((next) => {
                                 next.toolLists[listIndex].items[itemIndex].price =
-                                  value || undefined;
-                              })
-                            }
-                          />
-                          <TextField
-                            label="Thumbnail"
-                            value={item.thumbnail ?? ""}
-                            onChange={(value) =>
-                              updateDraft((next) => {
-                                next.toolLists[listIndex].items[itemIndex].thumbnail =
                                   value || undefined;
                               })
                             }

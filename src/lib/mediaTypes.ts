@@ -27,6 +27,11 @@ export const STEP_MEDIA_FILE_ACCEPT = SUPPORTED_MEDIA_EXTENSIONS.map(
   (ext) => `.${ext}`,
 ).join(",");
 
+/** Narrow `accept` value for tool-list thumbnail uploads (images only). */
+export const THUMBNAIL_FILE_ACCEPT = IMAGE_EXTENSIONS.map(
+  (ext) => `.${ext}`,
+).join(",");
+
 function extensionOf(fileName: string): string {
   const base = fileName.split(/[\\/]/).pop() ?? fileName;
   const dot = base.lastIndexOf(".");
@@ -71,4 +76,9 @@ export function mediaTypeFromFile(file: File): StepMediaType | null {
 /** Whether a file is one of the supported step media uploads. */
 export function isSupportedMediaFile(file: File): boolean {
   return mediaTypeFromFile(file) != null;
+}
+
+/** Whether a file is a supported image upload (for tool-list thumbnails). */
+export function isImageFile(file: File): boolean {
+  return mediaTypeFromFile(file) === "image";
 }

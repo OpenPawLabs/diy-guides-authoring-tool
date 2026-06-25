@@ -220,6 +220,18 @@ describe("GuideEditor", () => {
     });
   });
 
+  it("opens the dedicated preview tab", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+    renderEditor("preview-tab-guide", directory);
+
+    expect(screen.queryByTestId("guide-preview")).not.toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Preview" }));
+
+    expect(screen.getByTestId("guide-preview")).toBeInTheDocument();
+    expect(screen.queryByLabelText("MDX source")).not.toBeInTheDocument();
+  });
+
   it("opens raw mode directly when structured editing cannot parse the document", async () => {
     const directory = readyDirectory("# Initial");
     renderEditor("unsupported-guide", directory);

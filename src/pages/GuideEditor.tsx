@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, Button, Card } from "@heroui/react";
 import { DiscardChangesModal } from "../components/DiscardChangesModal";
 import { DiskConflictModal } from "../components/DiskConflictModal";
@@ -47,6 +47,13 @@ export function GuideEditor({
     before: string;
     after: string;
   } | null>(null);
+
+  const previewSource = useMemo(() => {
+    if (document.state.status !== "ready") {
+      return "";
+    }
+    return document.getCurrentSource();
+  }, [document]);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-6 py-10">
@@ -168,9 +175,19 @@ export function GuideEditor({
                 >
                   Raw MDX
                 </Button>
+                <Button
+                  variant={
+                    document.state.mode === "preview" ? "primary" : "outline"
+                  }
+                  onPress={() => document.setMode("preview")}
+                >
+                  Preview
+                </Button>
               </div>
 
-              {document.state.mode === "raw" && document.state.structuredError && (
+              {(document.state.mode === "raw" ||
+                document.state.mode === "structured") &&
+                document.state.structuredError && (
                 <Alert className="border border-warning-300 bg-warning-50">
                   <Alert.Content>
                     <Alert.Title>
@@ -202,6 +219,15 @@ export function GuideEditor({
                   initialSelection={initialStep}
                   onSelectionChange={persistStep}
                 />
+              ) : document.state.mode === "preview" ? (
+                <section className="flex min-h-[36rem] flex-col gap-2">
+                  <h2 className="text-sm font-semibold text-default-700">
+                    Guide preview
+                  </h2>
+                  <div className="min-h-0 flex-1 overflow-auto rounded-xl bg-default-50 p-3">
+                    <GuidePreview directory={directory} source={previewSource} />
+                  </div>
+                </section>
               ) : (
                 <div className="grid gap-5 lg:grid-cols-2">
                   <section className="flex min-h-[36rem] flex-col gap-2">

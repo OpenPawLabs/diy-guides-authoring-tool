@@ -19,7 +19,7 @@ import type { GuideFolderStatus } from "../lib/fs/types";
 
 type LoadedGuide = GuideFolderStatus & { guideMdxExists: true };
 
-export type EditorMode = "structured" | "raw";
+export type EditorMode = "structured" | "raw" | "preview";
 
 interface UseGuideDocumentOptions {
   guideId: string;
@@ -135,7 +135,10 @@ function readyFromDraft(
 
 /** Serialize the current editing state back to MDX (only called on save / mode switch). */
 function currentSourceOf(state: ReadyState): string {
-  if (state.mode === "structured" && state.draft) {
+  if (
+    state.draft &&
+    (state.mode === "structured" || state.mode === "preview")
+  ) {
     return updateStructuredGuideSource(state.baseSource, state.draft);
   }
   return state.rawSource;
@@ -321,11 +324,21 @@ export function useGuideDocument({
         return current;
       }
 
-      if (mode === "raw") {
-        return { ...current, mode: "raw", rawSource: currentSourceOf(current) };
+      if (mode === "preview") {
+        return { ...current, mode: "preview", structuredError: undefined };
       }
 
-      const parsed = parseStructuredGuide(current.rawSource);
+      if (mode === "raw") {
+        return {
+          ...current,
+          mode: "raw",
+          rawSource: currentSourceOf(current),
+          structuredError: undefined,
+        };
+      }
+
+      const source = currentSourceOf(current);
+      const parsed = parseStructuredGuide(source);
       if (parsed.status !== "supported") {
         return { ...current, structuredError: parsed.reason };
       }
@@ -334,7 +347,8 @@ export function useGuideDocument({
         ...current,
         mode: "structured",
         draft: parsed.draft,
-        baseSource: current.rawSource,
+        baseSource: source,
+        rawSource: source,
         warnings: parsed.warnings,
         structuredError: undefined,
       };

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  isImageFile,
+  isSupportedMediaFile,
   mediaTypeFromExtension,
   mediaTypeFromFile,
-  isSupportedMediaFile,
   STEP_MEDIA_FILE_ACCEPT,
+  THUMBNAIL_FILE_ACCEPT,
 } from "../lib/mediaTypes";
 
 describe("mediaTypes", () => {
@@ -37,5 +39,20 @@ describe("mediaTypes", () => {
     expect(mediaTypeFromFile(new File([], "blob", { type: "video/mp4" }))).toBe(
       "video",
     );
+  });
+
+  it("limits thumbnail uploads to image extensions", () => {
+    expect(THUMBNAIL_FILE_ACCEPT).toContain(".jpg");
+    expect(THUMBNAIL_FILE_ACCEPT).toContain(".webp");
+    expect(THUMBNAIL_FILE_ACCEPT).not.toContain(".mp4");
+    expect(THUMBNAIL_FILE_ACCEPT).not.toContain(".stl");
+    expect(THUMBNAIL_FILE_ACCEPT).not.toContain("image/*");
+  });
+
+  it("recognizes image-only uploads for thumbnails", () => {
+    expect(isImageFile(new File([], "photo.jpg"))).toBe(true);
+    expect(isImageFile(new File([], "clip.mp4"))).toBe(false);
+    expect(isImageFile(new File([], "part.stl"))).toBe(false);
+    expect(isImageFile(new File([], "notes.txt"))).toBe(false);
   });
 });

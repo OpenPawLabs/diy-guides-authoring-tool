@@ -413,4 +413,36 @@ ${blankGuideMdx}
       { id: "step-1-media-2", src: "./images/part.stl", type: "model" },
     ]);
   });
+
+  it("round-trips tool list item thumbnails", () => {
+    const source = blankGuideMdx.replace(
+      '<ToolList.Item name="Add a required tool" quantity={1} />',
+      '<ToolList.Item name="Screwdriver" quantity={1} thumbnail="./images/screwdriver.jpg" />',
+    );
+
+    const parsed = parseStructuredGuide(source);
+    expect(parsed.status).toBe("supported");
+    if (parsed.status !== "supported") {
+      return;
+    }
+
+    expect(parsed.draft.toolLists[0].items[0]).toMatchObject({
+      name: "Screwdriver",
+      quantity: 1,
+      thumbnail: "./images/screwdriver.jpg",
+    });
+
+    const serialized = serializeGuideLayout(parsed.draft);
+    expect(serialized).toContain('thumbnail="./images/screwdriver.jpg"');
+
+    const reparsed = parseStructuredGuide(serialized);
+    expect(reparsed.status).toBe("supported");
+    if (reparsed.status !== "supported") {
+      return;
+    }
+
+    expect(reparsed.draft.toolLists[0].items[0].thumbnail).toBe(
+      "./images/screwdriver.jpg",
+    );
+  });
 });

@@ -4,6 +4,8 @@ import { useGuideDocument } from "../hooks/useGuideDocument";
 import { GUIDE_MDX } from "../lib/fs/constants";
 import { getDraft, putDraft } from "../lib/fs/guideStore";
 import { hashSource } from "../lib/fs/hash";
+import { parseStructuredGuide } from "../lib/mdx/structuredGuide";
+import { blankGuideMdx } from "../lib/templates/blankGuideMdx";
 import { readyDirectory } from "./fakeFs";
 
 const initialGuide = {
@@ -112,6 +114,43 @@ describe("useGuideDocument refresh safety", () => {
       result.current.state.status === "ready" && result.current.state.rawSource,
     ).toBe("# New on disk");
     expect(await getDraft("g4")).toBeNull();
+  });
+
+  it("switches to preview mode", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+    const { result } = renderDocument("g-preview-mode", directory);
+
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+
+    act(() => result.current.setMode("preview"));
+    expect(
+      result.current.state.status === "ready" && result.current.state.mode,
+    ).toBe("preview");
+  });
+
+  it("restores preview mode from a persisted draft", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+    const parsed = parseStructuredGuide(blankGuideMdx);
+    expect(parsed.status).toBe("supported");
+    if (parsed.status !== "supported") {
+      return;
+    }
+
+    await putDraft({
+      guideId: "g-preview-restore",
+      mode: "preview",
+      draft: parsed.draft,
+      baseSource: blankGuideMdx,
+      baseHash: await hashSource(blankGuideMdx),
+      updatedAt: 1,
+    });
+
+    const { result } = renderDocument("g-preview-restore", directory);
+
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+    expect(
+      result.current.state.status === "ready" && result.current.state.mode,
+    ).toBe("preview");
   });
 
   it("discards edits, reverts to disk, and clears the persisted draft", async () => {

@@ -6,10 +6,16 @@ import {
   GuideStepList,
   LinkButton,
   MediaFigure,
+  MediaFigureThumbnail,
+  mediaFigureType,
   ToolList,
+  type LinkButtonItemProps,
+  type LinkButtonProps,
   type MediaFigureProps,
+  type ToolListItemProps,
+  type ToolListProps,
 } from "@openpawlabs/diy-guides-ui";
-import { useEffect, useMemo, useState } from "react";
+import { Children, cloneElement, isValidElement, useEffect, useMemo, useState } from "react";
 import { useResolvedImageSrc, assetBaseName } from "../hooks/useResolvedImageSrc";
 import {
   compileGuideMdx,
@@ -19,34 +25,37 @@ import {
 
 const PREVIEW_DEBOUNCE_MS = 250;
 
+/** Original list item before any preview-scoped compound overrides. */
+const ToolListItemBase = ToolList.Item;
+
 interface GuidePreviewProps {
   source: string;
   directory: FileSystemDirectoryHandle;
 }
 
-type PreviewState =
-  | { status: "compiling" }
-  | { status: "ready"; Content: GuideMdxComponent }
-  | { status: "error"; message: string };
-
 export function GuidePreview({ source, directory }: GuidePreviewProps) {
-  const [state, setState] = useState<PreviewState>({ status: "compiling" });
+  const [content, setContent] = useState<GuideMdxComponent | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(true);
   const components = useMemo(() => createPreviewComponents(directory), [directory]);
 
   useEffect(() => {
     let cancelled = false;
 
     const timeout = window.setTimeout(async () => {
-      setState({ status: "compiling" });
+      setIsUpdating(true);
+      setError(null);
 
       try {
         const compiled = await compileGuideMdx(source);
         if (!cancelled) {
-          setState({ status: "ready", Content: compiled.Content });
+          setContent(() => compiled.Content);
+          setIsUpdating(false);
         }
-      } catch (error) {
+      } catch (compileError) {
         if (!cancelled) {
-          setState({ status: "error", message: formatMdxError(error) });
+          setError(formatMdxError(compileError));
+          setIsUpdating(false);
         }
       }
     }, PREVIEW_DEBOUNCE_MS);
@@ -57,7 +66,18 @@ export function GuidePreview({ source, directory }: GuidePreviewProps) {
     };
   }, [source]);
 
-  if (state.status === "compiling") {
+  if (error && !content) {
+    return (
+      <Alert className="border border-danger-300 bg-danger-50">
+        <Alert.Content>
+          <Alert.Title>MDX preview error</Alert.Title>
+          <Alert.Description>{error}</Alert.Description>
+        </Alert.Content>
+      </Alert>
+    );
+  }
+
+  if (!content && isUpdating) {
     return (
       <Card className="min-h-80">
         <Card.Content className="flex min-h-80 items-center justify-center gap-3 text-default-600">
@@ -68,43 +88,119 @@ export function GuidePreview({ source, directory }: GuidePreviewProps) {
     );
   }
 
-  if (state.status === "error") {
-    return (
-      <Alert className="border border-danger-300 bg-danger-50">
-        <Alert.Content>
-          <Alert.Title>MDX preview error</Alert.Title>
-          <Alert.Description>{state.message}</Alert.Description>
-        </Alert.Content>
-      </Alert>
-    );
+  if (!content) {
+    return null;
   }
 
-  const Content = state.Content;
+  const Content = content;
 
   return (
-    <div className="rounded-xl border border-default-200 bg-white p-4 shadow-sm">
-      <Content components={components} />
+    <div className="relative">
+      {error && (
+        <Alert className="mb-3 border border-danger-300 bg-danger-50">
+          <Alert.Content>
+            <Alert.Title>MDX preview error</Alert.Title>
+            <Alert.Description>{error}</Alert.Description>
+          </Alert.Content>
+        </Alert>
+      )}
+      <div className="rounded-xl border border-default-200 bg-white p-4 shadow-sm">
+        <Content components={components} />
+      </div>
+      {isUpdating && (
+        <div
+          className="pointer-events-none absolute inset-0 flex items-start justify-end p-3"
+          aria-live="polite"
+        >
+          <span className="inline-flex items-center gap-2 rounded-full bg-background/90 px-3 py-1.5 text-sm text-default-600 shadow-sm">
+            <Spinner size="sm" />
+            Updating preview
+          </span>
+        </div>
+      )}
     </div>
   );
 }
 
+type PreviewMediaFigureProps = MediaFigureProps & { thumbnailPreview?: boolean };
+
 function createPreviewComponents(directory: FileSystemDirectoryHandle) {
-  function PreviewMediaFigure(props: MediaFigureProps) {
+  function PreviewMediaFigure(props: PreviewMediaFigureProps) {
     const resolvedSrc = useResolvedImageSrc(directory, props.src);
     const modelFileName =
       props.type === "model" ? assetBaseName(props.src) : undefined;
+
+    if (props.thumbnailPreview) {
+      return (
+        <MediaFigureThumbnail
+          src={resolvedSrc}
+          type={props.type}
+          className={props.className}
+        />
+      );
+    }
+
     return (
       <MediaFigure {...props} src={resolvedSrc} modelFileName={modelFileName} />
     );
   }
+
+  PreviewMediaFigure[mediaFigureType] = true;
+
+  function PreviewToolListItem(props: ToolListItemProps) {
+    const resolvedThumbnail = useResolvedImageSrc(directory, props.thumbnail ?? "");
+    return (
+      <ToolListItemBase
+        {...props}
+        thumbnail={props.thumbnail ? resolvedThumbnail : undefined}
+      />
+    );
+  }
+
+  function PreviewToolListRoot(props: ToolListProps) {
+    return <ToolList {...props} />;
+  }
+
+  const PreviewToolList = Object.assign(PreviewToolListRoot, {
+    Item: PreviewToolListItem,
+  });
+
+  function PreviewLinkButtonRoot(props: LinkButtonProps) {
+    const children = Children.map(props.children, (child) => {
+      if (!isValidElement<LinkButtonItemProps>(child)) {
+        return child;
+      }
+
+      if (child.type !== LinkButton.Item && child.type !== PreviewLinkButtonItem) {
+        return child;
+      }
+
+      const href = child.props.href?.trim();
+      if (!href) {
+        return cloneElement(child, { href: "#" });
+      }
+
+      return child;
+    });
+
+    return <LinkButton {...props}>{children}</LinkButton>;
+  }
+
+  function PreviewLinkButtonItem(props: LinkButtonItemProps) {
+    return <LinkButton.Item {...props} />;
+  }
+
+  const PreviewLinkButton = Object.assign(PreviewLinkButtonRoot, {
+    Item: PreviewLinkButtonItem,
+  });
 
   return {
     Callout,
     GuideLayout,
     GuideStep,
     GuideStepList,
-    LinkButton,
+    LinkButton: PreviewLinkButton,
     MediaFigure: PreviewMediaFigure,
-    ToolList,
+    ToolList: PreviewToolList,
   };
 }

@@ -94,7 +94,11 @@ export function StepEditorPanel({
       />
 
       {selection === "overview" ? (
-        <GuideOverviewForm draft={draft} updateDraft={updateDraft} />
+        <GuideOverviewForm
+          draft={draft}
+          directory={directory}
+          updateDraft={updateDraft}
+        />
       ) : activeStep ? (
         <div className="rounded-xl border border-default-200 bg-background p-5 shadow-sm">
           <GuideStepEditor

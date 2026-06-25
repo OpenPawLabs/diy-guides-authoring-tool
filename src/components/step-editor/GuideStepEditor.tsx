@@ -6,7 +6,7 @@ import {
   type MediaDisplayRegion,
 } from "@openpawlabs/diy-guides-ui";
 import { useRef, useState } from "react";
-import { useResolvedImageSrcs } from "../../hooks/useResolvedImageSrc";
+import { useResolvedImageSrcs, assetBaseName } from "../../hooks/useResolvedImageSrc";
 import { writeDownloadFile, writeImageFile } from "../../lib/fs/guideFiles";
 import {
   isSupportedMediaFile,
@@ -306,6 +306,9 @@ export function GuideStepEditor({
               key={item.id}
               src={resolvedSrcs[index]}
               type={item.type}
+              modelFileName={
+                item.type === "model" ? assetBaseName(item.src) : undefined
+              }
               annotations={item.annotations}
               displayRegion={item.displayRegion}
             />

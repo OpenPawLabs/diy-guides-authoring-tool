@@ -131,6 +131,13 @@ function imageAssetPath(src: string): string | null {
   return normalized.slice(prefix.length);
 }
 
+/** Base file name from a guide asset path such as `./images/part.stl`. */
+export function assetBaseName(src: string): string | undefined {
+  const normalized = src.replaceAll("\\", "/");
+  const name = normalized.split("/").pop();
+  return name || undefined;
+}
+
 async function resolveImageAsset(
   directory: FileSystemDirectoryHandle,
   imagePath: string,

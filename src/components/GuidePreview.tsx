@@ -10,7 +10,7 @@ import {
   type MediaFigureProps,
 } from "@openpawlabs/diy-guides-ui";
 import { useEffect, useMemo, useState } from "react";
-import { useResolvedImageSrc } from "../hooks/useResolvedImageSrc";
+import { useResolvedImageSrc, assetBaseName } from "../hooks/useResolvedImageSrc";
 import {
   compileGuideMdx,
   formatMdxError,
@@ -91,7 +91,11 @@ export function GuidePreview({ source, directory }: GuidePreviewProps) {
 function createPreviewComponents(directory: FileSystemDirectoryHandle) {
   function PreviewMediaFigure(props: MediaFigureProps) {
     const resolvedSrc = useResolvedImageSrc(directory, props.src);
-    return <MediaFigure {...props} src={resolvedSrc} />;
+    const modelFileName =
+      props.type === "model" ? assetBaseName(props.src) : undefined;
+    return (
+      <MediaFigure {...props} src={resolvedSrc} modelFileName={modelFileName} />
+    );
   }
 
   return {

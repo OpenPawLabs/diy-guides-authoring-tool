@@ -3,7 +3,7 @@ import { IMAGES_DIR } from "../lib/fs/constants";
 
 /** Inline placeholder shown when a referenced `./images/...` file is not on disk. */
 export const MISSING_IMAGE_SRC = `data:image/svg+xml,${encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
   <rect width="800" height="600" fill="#f1f5f9"/>
   <rect x="80" y="80" width="640" height="440" rx="24" fill="none" stroke="#94a3b8" stroke-width="8" stroke-dasharray="24 20"/>
   <text x="400" y="292" text-anchor="middle" font-family="Arial, sans-serif" font-size="38" font-weight="700" fill="#475569">Missing image</text>

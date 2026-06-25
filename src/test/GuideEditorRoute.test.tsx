@@ -2,9 +2,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { GuideEditorRoute } from "../pages/GuideEditorRoute";
-import { GUIDE_DB } from "../lib/fs/constants";
+import { resetIndexedDb } from "./resetIndexedDb";
 
-beforeEach(deleteDatabase);
+beforeEach(resetIndexedDb);
 
 describe("GuideEditorRoute", () => {
   it("redirects to the home page when the guide id is unknown", async () => {
@@ -22,12 +22,3 @@ describe("GuideEditorRoute", () => {
     );
   });
 });
-
-function deleteDatabase(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(GUIDE_DB);
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error("IndexedDB delete was blocked."));
-    request.onsuccess = () => resolve();
-  });
-}

@@ -1,7 +1,10 @@
 import { Alert, Button, Card, Link, Spinner } from "@heroui/react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { GuideCard } from "../components/GuideCard";
 import { useGuideLibrary } from "../hooks/useGuideLibrary";
+import type { StoredGuide } from "../lib/fs/guideStore";
 
 const workflowSteps = [
   "Clone a guide repository locally.",
@@ -13,7 +16,10 @@ const workflowSteps = [
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { guides, error, openFolder, forget } = useGuideLibrary();
+  const { guides, draftIds, error, openFolder, forget } = useGuideLibrary();
+  const [pendingForget, setPendingForget] = useState<StoredGuide | null>(null);
+  const hasPendingEdits =
+    pendingForget !== null && draftIds.has(pendingForget.id);
 
   const handleOpenFolder = async () => {
     const id = await openFolder();
@@ -67,11 +73,46 @@ export function HomePage() {
             <GuideCard
               key={guide.id}
               guide={guide}
-              onForget={(id) => void forget(id)}
+              onForget={(id) =>
+                setPendingForget(guides.find((g) => g.id === id) ?? null)
+              }
             />
           ))}
         </section>
       )}
+
+      <ConfirmModal
+        isOpen={pendingForget !== null}
+        heading="Remove this guide from recents?"
+        body={
+          <>
+            <p>
+              This removes{" "}
+              <strong>
+                {pendingForget?.title || pendingForget?.folderName}
+              </strong>{" "}
+              from your guides list
+              {hasPendingEdits && " and discards any unsaved edits stored for it"}
+              . The folder and <code>guide.mdx</code> on disk are not touched,
+              and you can open it again anytime.
+            </p>
+            {hasPendingEdits && (
+              <p className="mt-3 font-medium !text-danger">
+                This guide has unsaved edits that will be permanently deleted if
+                you remove it.
+              </p>
+            )}
+          </>
+        }
+        confirmLabel="Remove from recents"
+        onCancel={() => setPendingForget(null)}
+        onConfirm={() => {
+          if (pendingForget) {
+            void forget(pendingForget.id);
+          }
+          setPendingForget(null);
+        }}
+      />
     </main>
   );
 }

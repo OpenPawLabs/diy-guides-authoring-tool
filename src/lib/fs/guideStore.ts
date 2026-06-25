@@ -105,6 +105,15 @@ export async function getDraft(guideId: string): Promise<StoredDraft | null> {
   return draft ?? null;
 }
 
+/** Guide ids that currently have an unsaved draft persisted. */
+export async function listDraftIds(): Promise<string[]> {
+  const keys = await withStore(DRAFTS_STORE, "readonly", (store) =>
+    requestToPromise<IDBValidKey[]>(store.getAllKeys()),
+  );
+
+  return keys.map(String);
+}
+
 export async function putDraft(draft: StoredDraft): Promise<void> {
   await withStore(DRAFTS_STORE, "readwrite", (store) =>
     requestToPromise(store.put(draft)),

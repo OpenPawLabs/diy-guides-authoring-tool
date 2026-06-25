@@ -1,9 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useGuideLibrary } from "../hooks/useGuideLibrary";
-import { GUIDE_DB } from "../lib/fs/constants";
+import { putDraft } from "../lib/fs/guideStore";
 import { pickGuideFolder } from "../lib/fs/pickFolder";
 import { UserCancelledFolderPickError } from "../lib/fs/types";
+import { resetIndexedDb } from "./resetIndexedDb";
 
 vi.mock("../lib/fs/pickFolder", () => ({ pickGuideFolder: vi.fn() }));
 const mockPick = vi.mocked(pickGuideFolder);
@@ -25,7 +26,7 @@ function handle(name: string, key?: string): FileSystemDirectoryHandle {
 
 beforeEach(async () => {
   mockPick.mockReset();
-  await deleteDatabase();
+  await resetIndexedDb();
 });
 
 describe("useGuideLibrary", () => {
@@ -99,13 +100,32 @@ describe("useGuideLibrary", () => {
 
     await waitFor(() => expect(result.current.guides).toEqual([]));
   });
-});
 
-function deleteDatabase(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(GUIDE_DB);
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error("IndexedDB delete was blocked."));
-    request.onsuccess = () => resolve();
+  it("reports which guides have a persisted draft", async () => {
+    mockPick.mockResolvedValue(handle("0-overview", "key-1"));
+    const { result } = renderHook(() => useGuideLibrary());
+    await waitFor(() => expect(result.current.guides).toEqual([]));
+
+    let openedId = "";
+    await act(async () => {
+      openedId = (await result.current.openFolder()) ?? "";
+    });
+    expect(result.current.draftIds.has(openedId)).toBe(false);
+
+    await putDraft({
+      guideId: openedId,
+      mode: "raw",
+      rawSource: "# Edit",
+      baseSource: "# Base",
+      baseHash: "hash",
+      updatedAt: 1,
+    });
+    await act(async () => {
+      await result.current.openFolder();
+    });
+
+    await waitFor(() =>
+      expect(result.current.draftIds.has(openedId)).toBe(true),
+    );
   });
-}
+});

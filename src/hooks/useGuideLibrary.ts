@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   findGuideByHandle,
+  listDraftIds,
   listGuides,
   putGuide,
   removeGuide,
@@ -12,6 +13,8 @@ import { UserCancelledFolderPickError } from "../lib/fs/types";
 interface GuideLibrary {
   /** Recents, newest first. `null` while the first load is in flight. */
   guides: StoredGuide[] | null;
+  /** Ids of guides with unsaved edits persisted as a draft. */
+  draftIds: Set<string>;
   error?: string;
   /** Pick a folder and return the id of the (new or existing) guide to open. */
   openFolder: () => Promise<string | null>;
@@ -20,19 +23,23 @@ interface GuideLibrary {
 
 export function useGuideLibrary(): GuideLibrary {
   const [guides, setGuides] = useState<StoredGuide[] | null>(null);
+  const [draftIds, setDraftIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>();
 
   const refresh = useCallback(async () => {
-    setGuides(await listGuides());
+    const [list, drafts] = await Promise.all([listGuides(), listDraftIds()]);
+    setGuides(list);
+    setDraftIds(new Set(drafts));
   }, []);
 
   useEffect(() => {
     let active = true;
 
     void (async () => {
-      const list = await listGuides();
+      const [list, drafts] = await Promise.all([listGuides(), listDraftIds()]);
       if (active) {
         setGuides(list);
+        setDraftIds(new Set(drafts));
       }
     })();
 
@@ -80,5 +87,5 @@ export function useGuideLibrary(): GuideLibrary {
     [refresh],
   );
 
-  return { guides, error, openFolder, forget };
+  return { guides, draftIds, error, openFolder, forget };
 }

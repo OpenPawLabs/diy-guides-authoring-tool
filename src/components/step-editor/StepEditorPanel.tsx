@@ -4,6 +4,7 @@ import {
   type GuideDraft,
   type StepDraft,
 } from "../../lib/mdx/structuredGuide";
+import { ConfirmModal } from "../ConfirmModal";
 import { GuideOverviewForm } from "../GuideOverviewForm";
 import { GuideStepEditor } from "./GuideStepEditor";
 import { StepNavigator, type StepSelection } from "./StepNavigator";
@@ -31,6 +32,7 @@ export function StepEditorPanel({
   onSelectionChange,
 }: StepEditorPanelProps) {
   const [selection, setSelection] = useState<StepSelection>(initialSelection);
+  const [pendingRemove, setPendingRemove] = useState<number | null>(null);
   const select = (next: StepSelection) => {
     setSelection(next);
     onSelectionChange?.(next);
@@ -69,6 +71,9 @@ export function StepEditorPanel({
     select(Math.max(0, index - 1));
   };
 
+  const pendingRemoveStep =
+    pendingRemove !== null ? steps[pendingRemove] : undefined;
+
   const onStepChange = (mutate: (step: StepDraft) => void) =>
     updateDraft((next) => {
       const step = next.steps[activeIndex];
@@ -85,7 +90,7 @@ export function StepEditorPanel({
         onSelect={select}
         onAdd={addStep}
         onMove={moveStep}
-        onRemove={removeStep}
+        onRemove={setPendingRemove}
       />
 
       {selection === "overview" ? (
@@ -105,6 +110,27 @@ export function StepEditorPanel({
           No steps yet. Add the first step to start building the guide.
         </p>
       )}
+
+      <ConfirmModal
+        isOpen={pendingRemove !== null}
+        heading="Remove this step?"
+        body={
+          <p>
+            Removing step {(pendingRemove ?? 0) + 1}
+            {pendingRemoveStep?.title ? ` (“${pendingRemoveStep.title}”)` : ""}{" "}
+            deletes its text, bullets, and image assignments. This cannot be
+            undone.
+          </p>
+        }
+        confirmLabel="Remove step"
+        onCancel={() => setPendingRemove(null)}
+        onConfirm={() => {
+          if (pendingRemove !== null) {
+            removeStep(pendingRemove);
+          }
+          setPendingRemove(null);
+        }}
+      />
     </div>
   );
 }

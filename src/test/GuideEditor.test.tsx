@@ -1,12 +1,13 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GuideEditor } from "../pages/GuideEditor";
-import { GUIDE_DB, GUIDE_MDX } from "../lib/fs/constants";
+import { GUIDE_MDX } from "../lib/fs/constants";
 import { getGuide, putGuide } from "../lib/fs/guideStore";
 import type { StepSelection } from "../components/step-editor/StepNavigator";
 import { blankGuideMdx } from "../lib/templates/blankGuideMdx";
 import { FakeDirectoryHandle, readyDirectory } from "./fakeFs";
+import { resetIndexedDb } from "./resetIndexedDb";
 
 vi.mock("../components/GuidePreview", () => ({
   GuidePreview: ({ source }: { source: string }) => (
@@ -14,7 +15,7 @@ vi.mock("../components/GuidePreview", () => ({
   ),
 }));
 
-beforeEach(deleteDatabase);
+beforeEach(resetIndexedDb);
 
 describe("GuideEditor", () => {
   it("loads, edits, and saves guide.mdx through raw mode", async () => {
@@ -152,6 +153,30 @@ describe("GuideEditor", () => {
     });
   });
 
+  it("confirms before removing a step", async () => {
+    const directory = readyDirectory(blankGuideMdx);
+    renderEditor("remove-step-guide", directory);
+
+    // Add a second step so removal is enabled, then target it.
+    await userEvent.click(await screen.findByRole("button", { name: /add step/i }));
+    expect(screen.getByRole("tab", { name: "2" })).toBeInTheDocument();
+
+    // Opening the confirm modal must not remove the step on its own; cancelling
+    // is a no-op.
+    await userEvent.click(screen.getByRole("button", { name: "Remove step" }));
+    expect(screen.getByText("Remove this step?")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("tab", { name: "2" })).toBeInTheDocument();
+
+    // Confirming removes it.
+    await userEvent.click(screen.getByRole("button", { name: "Remove step" }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove step" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("tab", { name: "2" })).not.toBeInTheDocument(),
+    );
+  });
+
   it("switches between the Overview tab and a step", async () => {
     const directory = readyDirectory(blankGuideMdx);
     renderEditor("tabs-guide", directory);
@@ -241,13 +266,4 @@ function guideStatus(directory: FakeDirectoryHandle) {
     guideMdxLastModified: 1,
     guideMdxSize: directory.files.get(GUIDE_MDX)?.content.length ?? 0,
   };
-}
-
-function deleteDatabase(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(GUIDE_DB);
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error("IndexedDB delete was blocked."));
-    request.onsuccess = () => resolve();
-  });
 }

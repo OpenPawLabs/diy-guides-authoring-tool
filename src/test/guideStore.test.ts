@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { GUIDE_DB, LEGACY_HANDLE_STORE } from "../lib/fs/constants";
+import { resetIndexedDb } from "./resetIndexedDb";
 import {
   clearDraft,
   findGuideByHandle,
   getDraft,
   getGuide,
+  listDraftIds,
   listGuides,
   putDraft,
   putGuide,
@@ -43,7 +45,7 @@ function guide(
   };
 }
 
-beforeEach(deleteDatabase);
+beforeEach(resetIndexedDb);
 
 describe("guideStore guides", () => {
   it("stores, lists, and removes guides", async () => {
@@ -115,6 +117,24 @@ describe("guideStore drafts", () => {
     expect(await getDraft("a")).toBeNull();
   });
 
+  it("lists the ids of guides with a persisted draft", async () => {
+    expect(await listDraftIds()).toEqual([]);
+
+    await putDraft({
+      guideId: "with-draft",
+      mode: "raw",
+      rawSource: "# Edit",
+      baseSource: "# Base",
+      baseHash: "hash",
+      updatedAt: 1,
+    });
+
+    expect(await listDraftIds()).toEqual(["with-draft"]);
+
+    await clearDraft("with-draft");
+    expect(await listDraftIds()).toEqual([]);
+  });
+
   it("clears the draft when its guide is removed", async () => {
     await putGuide(guide("b"));
     await putDraft({
@@ -142,15 +162,6 @@ describe("guideStore migration", () => {
     expect(guides[0].folderName).toBe("0-overview");
   });
 });
-
-function deleteDatabase(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(GUIDE_DB);
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error("IndexedDB delete was blocked."));
-    request.onsuccess = () => resolve();
-  });
-}
 
 function seedLegacyDatabase(): Promise<void> {
   return new Promise((resolve, reject) => {

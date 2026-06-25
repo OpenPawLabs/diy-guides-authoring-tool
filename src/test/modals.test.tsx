@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { DiscardChangesModal } from "../components/DiscardChangesModal";
 import { DiskConflictModal } from "../components/DiskConflictModal";
 import { FolderAccessModal } from "../components/FolderAccessModal";
@@ -89,5 +90,32 @@ describe("DiscardChangesModal", () => {
     expect(
       screen.getByText("No differences from the file on disk."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("ConfirmModal", () => {
+  it("renders the heading and body and wires the actions", async () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+
+    render(
+      <ConfirmModal
+        isOpen
+        heading="Remove this step?"
+        body={<p>This deletes its bullets.</p>}
+        confirmLabel="Remove step"
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    expect(screen.getByText("Remove this step?")).toBeInTheDocument();
+    expect(screen.getByText("This deletes its bullets.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove step" }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 });

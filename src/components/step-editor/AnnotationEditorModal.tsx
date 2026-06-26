@@ -46,7 +46,7 @@ export function AnnotationEditorModal({
   onClose,
   onChange,
 }: AnnotationEditorModalProps) {
-  const [tool, setTool] = useState<AnnotationTool>("point");
+  const [tool, setTool] = useState<AnnotationTool>("select");
   const [color, setColor] = useState<GuideColor>("RED");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showRerenderDiv, setShowRerenderDiv] = useState<boolean>(false);
@@ -91,7 +91,12 @@ export function AnnotationEditorModal({
         <Modal.Container size="cover">
           <Modal.Dialog className="flex max-h-[100dvh] flex-col">
             <Modal.Header className="shrink-0">
-              <Modal.Heading>Edit annotations</Modal.Heading>
+              <Modal.Heading>Edit annotations
+                <Button className="float-right" variant="primary" onPress={onClose}>
+                  Done
+                </Button>
+              </Modal.Heading>
+              
             </Modal.Header>
             <Modal.Body className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden">
               <div className="flex shrink-0 flex-wrap items-center gap-3">
@@ -135,58 +140,6 @@ export function AnnotationEditorModal({
 
               {showRerenderDiv && (<div style={{ height: "1px" }} />) }
 
-              {selected && (
-                <div className="flex shrink-0 flex-col gap-3 rounded-lg border border-default-200 bg-default-50 p-3 sm:flex-row sm:items-end">
-                  {isPoint && (
-                    <label className="flex flex-1 flex-col gap-1 text-sm">
-                      <span className="font-medium text-default-600">Label</span>
-                      <input
-                        type="text"
-                        value={pointLabel(selected)}
-                        placeholder="e.g. 1 or A"
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          updateSelected((annotation) => {
-                            if (annotation.type == null || annotation.type === "point") {
-                              annotation.label = value || undefined;
-                            }
-                          });
-                        }}
-                        className="rounded-md border border-default-200 bg-background px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                      />
-                    </label>
-                  )}
-                  <label className="flex flex-1 flex-col gap-1 text-sm">
-                    <span className="font-medium text-default-600">Tooltip</span>
-                    <input
-                      type="text"
-                      value={selected.title ?? ""}
-                      placeholder="Accessible description"
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        updateSelected((annotation) => {
-                          annotation.title = value || undefined;
-                        });
-                      }}
-                      className="rounded-md border border-default-200 bg-background px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                    />
-                  </label>
-                  <Button
-                    variant="danger"
-                    onPress={() => {
-                      onChange((list) => {
-                        const index = list.findIndex((item) => item.id === selectedId);
-                        if (index >= 0) {
-                          list.splice(index, 1);
-                        }
-                      });
-                      setSelectedId(null);
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              )}
               <div className="min-h-0 w-full flex-1" style={{ containerType: "size" }}>
                 <MediaFigure
                   className="m-0 flex h-full w-full items-center justify-center gap-0 [&>div]:h-auto [&>div]:w-[min(100cqw,calc(100cqh*4/3))]"
@@ -223,12 +176,64 @@ export function AnnotationEditorModal({
                   }}
                 />
               </div>
+
+              <div className="flex shrink-0 flex-col gap-3 rounded-lg border border-default-200 bg-default-50 p-3 sm:flex-row sm:items-end">
+                {isPoint && (
+                  <label className="flex flex-1 flex-col gap-1 text-sm">
+                    <span className="font-medium text-default-600">Label</span>
+                    <input
+                      type="text"
+                      value={selected ? pointLabel(selected) : ""}
+                      placeholder="e.g. 1 or A"
+                      onChange={(event) => {
+                        if (!selected) return;
+                        const value = event.target.value;
+                        updateSelected((annotation) => {
+                          if (annotation.type == null || annotation.type === "point") {
+                            annotation.label = value || undefined;
+                          }
+                        });
+                      }}
+                      className="rounded-md border border-default-200 bg-background px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      disabled={!selected}
+                    />
+                  </label>
+                )}
+                <label className="flex flex-1 flex-col gap-1 text-sm">
+                  <span className="font-medium text-default-600">Tooltip</span>
+                  <input
+                    type="text"
+                    value={selected ? (selected.title ?? "") : ""}
+                    placeholder="Accessible description"
+                    onChange={(event) => {
+                      if (!selected) return;
+                      const value = event.target.value;
+                      updateSelected((annotation) => {
+                        annotation.title = value || undefined;
+                      });
+                    }}
+                    className="rounded-md border border-default-200 bg-background px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    disabled={!selected}
+                  />
+                </label>
+                <Button
+                  variant="danger"
+                  onPress={() => {
+                    if (!selected) return;
+                    onChange((list) => {
+                      const index = list.findIndex((item) => item.id === selectedId);
+                      if (index >= 0) {
+                        list.splice(index, 1);
+                      }
+                    });
+                    setSelectedId(null);
+                  }}
+                  isDisabled={!selected}
+                >
+                  Delete
+                </Button>
+              </div>
             </Modal.Body>
-            <Modal.Footer className="shrink-0">
-              <Button variant="primary" onPress={onClose}>
-                Done
-              </Button>
-            </Modal.Footer>
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>

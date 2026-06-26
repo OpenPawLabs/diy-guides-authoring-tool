@@ -1,19 +1,20 @@
-import { Card } from "@heroui/react";
+import { Button, Card } from "@heroui/react";
 import { DifficultyBadge } from "@openpawlabs/diy-guides-ui";
 import { Link as RouterLink } from "react-router-dom";
 import { guideActivityTime, type StoredGuide } from "../lib/fs/guideStore";
 
 interface GuideCardProps {
   guide: StoredGuide;
+  hasPendingEdits?: boolean;
   onForget?: (id: string) => void;
 }
 
-export function GuideCard({ guide, onForget }: GuideCardProps) {
+export function GuideCard({ guide, hasPendingEdits, onForget }: GuideCardProps) {
   return (
-    <div className="relative h-full">
+    <div className="relative flex h-full flex-col gap-2">
       <RouterLink
         to={`/guide/${guide.id}`}
-        className="block h-full rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
+        className="block flex-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
       >
         <Card className="h-full transition hover:border-primary-300 hover:shadow-md">
           <Card.Header>
@@ -35,6 +36,23 @@ export function GuideCard({ guide, onForget }: GuideCardProps) {
         </Card>
       </RouterLink>
 
+      <Button
+        aria-label={`Full preview of ${guide.title || guide.folderName}`}
+        className="h-auto min-h-9 w-full py-2"
+        size="sm"
+        variant="outline"
+        onPress={() => openFullPreview(guide.id)}
+      >
+        <span className="flex flex-col items-center gap-0.5 leading-tight">
+          {hasPendingEdits && (
+            <span className="text-xs font-normal text-warning">
+              Note: Unsaved edits not shown
+            </span>
+          )}
+          <span>Full screen preview</span>
+        </span>
+      </Button>
+
       {onForget && (
         <button
           aria-label={`Remove ${guide.folderName} from recents`}
@@ -47,6 +65,11 @@ export function GuideCard({ guide, onForget }: GuideCardProps) {
       )}
     </div>
   );
+}
+
+function openFullPreview(guideId: string) {
+  const base = `${window.location.origin}${window.location.pathname}`;
+  window.open(`${base}#/guide/${guideId}/preview`, "_blank", "noopener,noreferrer");
 }
 
 function formatRelativeTime(timestamp: number): string {

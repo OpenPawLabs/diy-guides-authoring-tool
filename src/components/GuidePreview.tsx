@@ -15,7 +15,7 @@ import {
   type ToolListItemProps,
   type ToolListProps,
 } from "@openpawlabs/diy-guides-ui";
-import { Children, cloneElement, isValidElement, useEffect, useMemo, useState } from "react";
+import { Children, isValidElement, useEffect, useMemo, useState } from "react";
 import { useResolvedImageSrc, assetBaseName } from "../hooks/useResolvedImageSrc";
 import {
   compileGuideMdx,
@@ -31,9 +31,11 @@ const ToolListItemBase = ToolList.Item;
 interface GuidePreviewProps {
   source: string;
   directory: FileSystemDirectoryHandle;
+  /** Reader-style output — no editor chrome, frame, or update badge. */
+  bare?: boolean;
 }
 
-export function GuidePreview({ source, directory }: GuidePreviewProps) {
+export function GuidePreview({ source, directory, bare = false }: GuidePreviewProps) {
   const [content, setContent] = useState<GuideMdxComponent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(true);
@@ -78,6 +80,14 @@ export function GuidePreview({ source, directory }: GuidePreviewProps) {
   }
 
   if (!content && isUpdating) {
+    if (bare) {
+      return (
+        <div className="flex min-h-[50vh] items-center justify-center gap-3 text-default-600">
+          <Spinner size="sm" />
+        </div>
+      );
+    }
+
     return (
       <Card className="min-h-80">
         <Card.Content className="flex min-h-80 items-center justify-center gap-3 text-default-600">
@@ -94,6 +104,24 @@ export function GuidePreview({ source, directory }: GuidePreviewProps) {
 
   const Content = content;
 
+  const guideContent = <Content components={components} />;
+
+  if (bare) {
+    return (
+      <>
+        {error && (
+          <Alert className="mb-3 border border-danger-300 bg-danger-50">
+            <Alert.Content>
+              <Alert.Title>MDX preview error</Alert.Title>
+              <Alert.Description>{error}</Alert.Description>
+            </Alert.Content>
+          </Alert>
+        )}
+        {guideContent}
+      </>
+    );
+  }
+
   return (
     <div className="relative">
       {error && (
@@ -105,7 +133,7 @@ export function GuidePreview({ source, directory }: GuidePreviewProps) {
         </Alert>
       )}
       <div className="rounded-xl border border-default-200 bg-white p-4 shadow-sm">
-        <Content components={components} />
+        {guideContent}
       </div>
       {isUpdating && (
         <div
@@ -177,12 +205,19 @@ function createPreviewComponents(directory: FileSystemDirectoryHandle) {
         return child;
       }
 
-      const href = child.props.href?.trim();
-      if (!href) {
-        return cloneElement(child, { href: "#" });
-      }
-
-      return child;
+      const href = child.props.href?.trim() || "#";
+      // LinkButton filters children by `node.type === LinkButtonItem`; MDX passes
+      // PreviewLinkButtonItem, so normalize to the library component.
+      return (
+        <LinkButton.Item
+          key={child.key}
+          download={child.props.download}
+          external={child.props.external}
+          href={href}
+        >
+          {child.props.children}
+        </LinkButton.Item>
+      );
     });
 
     return <LinkButton {...props}>{children}</LinkButton>;

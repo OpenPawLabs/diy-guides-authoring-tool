@@ -89,4 +89,37 @@ describe("GuidePreview", () => {
       { timeout: 3000 },
     );
   });
+
+  it("renders LinkButton download bullets from MDX", async () => {
+    const source = blankGuideMdx.replace(
+      `        <GuideStep.Bullets>
+          <GuideStep.Bullet>
+            Replace this placeholder instruction with the first action.
+          </GuideStep.Bullet>
+        </GuideStep.Bullets>`,
+      `        <GuideStep.Bullets>
+          <GuideStep.Bullet variant="button">
+            <LinkButton>
+              <LinkButton.Item href="./files/model.stl" download>
+                Download STL
+              </LinkButton.Item>
+            </LinkButton>
+          </GuideStep.Bullet>
+        </GuideStep.Bullets>`,
+    );
+    const directory = readyDirectory(source);
+
+    render(
+      <GuidePreview directory={directory.asDirectoryHandle()} source={source} />,
+    );
+
+    await waitFor(
+      () => {
+        expect(
+          screen.getByRole("link", { name: "Download STL" }),
+        ).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
+  });
 });

@@ -73,6 +73,7 @@ export function HomePage() {
             <GuideCard
               key={guide.id}
               guide={guide}
+              hasPendingEdits={draftIds.has(guide.id)}
               onForget={(id) =>
                 setPendingForget(guides.find((g) => g.id === id) ?? null)
               }

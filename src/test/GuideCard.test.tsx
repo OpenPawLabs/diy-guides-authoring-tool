@@ -31,6 +31,36 @@ describe("GuideCard", () => {
     expect(screen.getByText("2-tracker-assembly")).toBeInTheDocument();
     expect(screen.getByText("Moderate")).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/guide/abc");
+    expect(
+      screen.getByRole("button", { name: "Full preview of Tracker Assembly" }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens full preview in a new tab", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    renderCard();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Full preview of Tracker Assembly" }),
+    );
+
+    expect(openSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/#\/guide\/abc\/preview$/),
+      "_blank",
+      "noopener,noreferrer",
+    );
+    openSpy.mockRestore();
+  });
+
+  it("shows an unsaved warning on the full preview button", () => {
+    renderCard({ hasPendingEdits: true });
+
+    expect(
+      screen.getByRole("button", {
+        name: "Full preview (saved) of Tracker Assembly",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Unsaved edits not shown")).toBeInTheDocument();
   });
 
   it("falls back to the folder name when there is no title", () => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Modal, cn } from "@heroui/react";
 import {
   COLORS,
@@ -49,6 +49,7 @@ export function AnnotationEditorModal({
   const [tool, setTool] = useState<AnnotationTool>("point");
   const [color, setColor] = useState<GuideColor>("RED");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showRerenderDiv, setShowRerenderDiv] = useState<boolean>(false);
 
   const selected = annotations.find((annotation) => annotation.id === selectedId);
   const isPoint = selected != null && (selected.type ?? "point") === "point";
@@ -69,6 +70,20 @@ export function AnnotationEditorModal({
       annotation.color = next;
     });
   };
+
+  // 200ms after the modal is opened opened display a 1px div to force css recalculation to display the image with the proper display region.
+  // (on initial load the display region displays slightly cropped and smaller than it should be, so we force a rerender)
+  // yeah its hacky, but because of css fuckery its the easiest way to do this and idgaf
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        setShowRerenderDiv(true);
+      }, 200);
+    } else if (!isOpen && showRerenderDiv) {
+      setShowRerenderDiv(false);
+    }
+  }, [isOpen, showRerenderDiv]);
+  
 
   return (
     <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -117,6 +132,8 @@ export function AnnotationEditorModal({
                   ))}
                 </div>
               </div>
+
+              {showRerenderDiv && (<div style={{ height: "1px" }} />) }
 
               {selected && (
                 <div className="flex shrink-0 flex-col gap-3 rounded-lg border border-default-200 bg-default-50 p-3 sm:flex-row sm:items-end">

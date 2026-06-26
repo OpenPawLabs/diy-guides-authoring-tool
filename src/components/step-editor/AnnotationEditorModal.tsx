@@ -5,6 +5,7 @@ import {
   MediaFigure,
   type AnnotationTool,
   type MediaAnnotation,
+  type MediaDisplayRegion,
 } from "@openpawlabs/diy-guides-ui";
 import {
   createDraftId,
@@ -16,6 +17,8 @@ interface AnnotationEditorModalProps {
   isOpen: boolean;
   /** Displayable source for the image being annotated. */
   src: string;
+  /** 4:3 crop in source pixels; matches the step preview when set. */
+  displayRegion?: MediaDisplayRegion;
   annotations: MediaAnnotation[];
   onClose: () => void;
   /** Apply an in-place mutation to the image's annotation list. */
@@ -38,6 +41,7 @@ const TOOLS: { tool: AnnotationTool; label: string }[] = [
 export function AnnotationEditorModal({
   isOpen,
   src,
+  displayRegion,
   annotations,
   onClose,
   onChange,
@@ -170,6 +174,7 @@ export function AnnotationEditorModal({
                 <MediaFigure
                   className="m-0 flex h-full w-full items-center justify-center gap-0 [&>div]:h-auto [&>div]:w-[min(100cqw,calc(100cqh*4/3))]"
                   src={src}
+                  displayRegion={displayRegion}
                   annotations={annotations}
                   annotationEditing={{
                     tool,

@@ -434,6 +434,7 @@ export function GuideStepEditor({
       <AnnotationEditorModal
         isOpen={annotatingIndex !== null}
         src={annotatingIndex !== null ? (resolvedSrcs[annotatingIndex] ?? "") : ""}
+        displayRegion={annotatingMedia?.displayRegion}
         annotations={annotatingMedia?.annotations ?? []}
         onClose={() => setAnnotatingIndex(null)}
         onChange={(recipe) =>

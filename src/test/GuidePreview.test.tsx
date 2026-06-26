@@ -90,6 +90,40 @@ describe("GuidePreview", () => {
     );
   });
 
+  it("resolves the header hero image without recursive render failure", async () => {
+    const source = blankGuideMdx.replace(
+      `  <GuideLayout.Header
+    title="Untitled DIY Guide"
+    difficulty="easy"
+    timeEstimate="30 minutes"
+    meta="Draft"
+  />`,
+      `  <GuideLayout.Header
+    title="Untitled DIY Guide"
+    heroImage="./images/hero.jpg"
+    heroImageAlt="Guide hero"
+    difficulty="easy"
+    timeEstimate="30 minutes"
+    meta="Draft"
+  />`,
+    );
+    const directory = readyDirectory(source);
+    const images = directory.directories.get("images")!;
+    images.files.set("hero.jpg", new FakeFileHandle("hero.jpg", "fake"));
+
+    render(
+      <GuidePreview directory={directory.asDirectoryHandle()} source={source} />,
+    );
+
+    await waitFor(
+      () => {
+        const hero = screen.getByRole("img", { name: "Guide hero" });
+        expect(hero.getAttribute("src")).toMatch(/^blob:/);
+      },
+      { timeout: 3000 },
+    );
+  });
+
   it("renders LinkButton download bullets from MDX", async () => {
     const source = blankGuideMdx.replace(
       `        <GuideStep.Bullets>

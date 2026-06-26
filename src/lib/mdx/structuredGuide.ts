@@ -44,6 +44,8 @@ export interface GuideHeaderDraft {
   difficulty: GuideDifficulty;
   timeEstimate: string;
   meta: string;
+  heroImage?: string;
+  heroImageAlt?: string;
 }
 
 export interface ToolListDraft {
@@ -355,6 +357,8 @@ function parseHeader(node: MdxNode): GuideHeaderDraft {
     difficulty: enumAttribute(node, "difficulty", guideDifficulties, "easy"),
     timeEstimate: stringAttribute(node, "timeEstimate") ?? "",
     meta: stringAttribute(node, "meta") ?? "",
+    heroImage: stringAttribute(node, "heroImage") || undefined,
+    heroImageAlt: stringAttribute(node, "heroImageAlt") || undefined,
   };
 }
 
@@ -696,14 +700,22 @@ function parseLinkItems(
 }
 
 function serializeHeader(header: GuideHeaderDraft): string {
-  return [
-    "  <GuideLayout.Header",
-    `    title="${escapeAttribute(header.title)}"`,
-    `    difficulty="${header.difficulty}"`,
-    `    timeEstimate="${escapeAttribute(header.timeEstimate)}"`,
-    `    meta="${escapeAttribute(header.meta)}"`,
-    "  />",
-  ].join("\n");
+  const attrs = [
+    `title="${escapeAttribute(header.title)}"`,
+    header.heroImage
+      ? `heroImage="${escapeAttribute(header.heroImage)}"`
+      : undefined,
+    header.heroImageAlt
+      ? `heroImageAlt="${escapeAttribute(header.heroImageAlt)}"`
+      : undefined,
+    `difficulty="${header.difficulty}"`,
+    `timeEstimate="${escapeAttribute(header.timeEstimate)}"`,
+    `meta="${escapeAttribute(header.meta)}"`,
+  ].filter(Boolean);
+
+  return [`  <GuideLayout.Header`, ...attrs.map((attr) => `    ${attr}`), "  />"].join(
+    "\n",
+  );
 }
 
 function serializeIntro(intro: string): string {

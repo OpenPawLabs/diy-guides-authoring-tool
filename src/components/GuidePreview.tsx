@@ -9,6 +9,8 @@ import {
   MediaFigureThumbnail,
   mediaFigureType,
   ToolList,
+  type GuideLayoutHeaderProps,
+  type GuideLayoutProps,
   type LinkButtonItemProps,
   type LinkButtonProps,
   type MediaFigureProps,
@@ -27,6 +29,9 @@ const PREVIEW_DEBOUNCE_MS = 250;
 
 /** Original list item before any preview-scoped compound overrides. */
 const ToolListItemBase = ToolList.Item;
+
+/** Original header before any preview-scoped compound overrides. */
+const GuideLayoutHeaderBase = GuideLayout.Header;
 
 interface GuidePreviewProps {
   source: string;
@@ -231,9 +236,30 @@ function createPreviewComponents(directory: FileSystemDirectoryHandle) {
     Item: PreviewLinkButtonItem,
   });
 
+  function PreviewGuideLayoutHeader(props: GuideLayoutHeaderProps) {
+    const resolvedHero = useResolvedImageSrc(directory, props.heroImage ?? "");
+    return (
+      <GuideLayoutHeaderBase
+        {...props}
+        heroImage={props.heroImage ? resolvedHero : undefined}
+      />
+    );
+  }
+
+  function PreviewGuideLayoutRoot(props: GuideLayoutProps) {
+    return <GuideLayout {...props} />;
+  }
+
+  const PreviewGuideLayout = Object.assign(PreviewGuideLayoutRoot, {
+    Header: PreviewGuideLayoutHeader,
+    Intro: GuideLayout.Intro,
+    Sidebar: GuideLayout.Sidebar,
+    Content: GuideLayout.Content,
+  });
+
   return {
     Callout,
-    GuideLayout,
+    GuideLayout: PreviewGuideLayout,
     GuideStep,
     GuideStepList,
     LinkButton: PreviewLinkButton,

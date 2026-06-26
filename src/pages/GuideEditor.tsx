@@ -110,6 +110,7 @@ export function GuideEditor({
           {document.state.mode === "structured" && document.state.draft && (
             <GuideDetailsCard
               draft={document.state.draft}
+              directory={directory}
               updateDraft={document.updateDraft}
               lastModified={document.state.guide.guideMdxLastModified}
             />

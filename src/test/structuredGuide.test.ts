@@ -445,4 +445,49 @@ ${blankGuideMdx}
       "./images/screwdriver.jpg",
     );
   });
+
+  it("round-trips header hero image and alt text", () => {
+    const source = blankGuideMdx.replace(
+      `  <GuideLayout.Header
+    title="Untitled DIY Guide"
+    difficulty="easy"
+    timeEstimate="30 minutes"
+    meta="Draft"
+  />`,
+      `  <GuideLayout.Header
+    title="Untitled DIY Guide"
+    heroImage="./images/hero.jpg"
+    heroImageAlt="Assembled trackers on a dock"
+    difficulty="easy"
+    timeEstimate="30 minutes"
+    meta="Draft"
+  />`,
+    );
+
+    const parsed = parseStructuredGuide(source);
+    expect(parsed.status).toBe("supported");
+    if (parsed.status !== "supported") {
+      return;
+    }
+
+    expect(parsed.draft.header).toMatchObject({
+      heroImage: "./images/hero.jpg",
+      heroImageAlt: "Assembled trackers on a dock",
+    });
+
+    const serialized = serializeGuideLayout(parsed.draft);
+    expect(serialized).toContain('heroImage="./images/hero.jpg"');
+    expect(serialized).toContain('heroImageAlt="Assembled trackers on a dock"');
+
+    const reparsed = parseStructuredGuide(serialized);
+    expect(reparsed.status).toBe("supported");
+    if (reparsed.status !== "supported") {
+      return;
+    }
+
+    expect(reparsed.draft.header.heroImage).toBe("./images/hero.jpg");
+    expect(reparsed.draft.header.heroImageAlt).toBe(
+      "Assembled trackers on a dock",
+    );
+  });
 });

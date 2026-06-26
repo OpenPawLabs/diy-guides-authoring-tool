@@ -17,8 +17,8 @@ import {
   type ToolListItemProps,
   type ToolListProps,
 } from "@openpawlabs/diy-guides-ui";
-import { Children, isValidElement, useEffect, useMemo, useState } from "react";
-import { useResolvedImageSrc, assetBaseName } from "../hooks/useResolvedImageSrc";
+import { Children, isValidElement, useEffect, useMemo, useState, type ReactElement } from "react";
+import { useResolvedFileHrefs, useResolvedImageSrc, assetBaseName } from "../hooks/useResolvedImageSrc";
 import {
   compileGuideMdx,
   formatMdxError,
@@ -26,6 +26,26 @@ import {
 } from "../lib/mdx/guideMdx";
 
 const PREVIEW_DEBOUNCE_MS = 250;
+
+function resolvePreviewDownload(
+  originalHref: string,
+  resolvedHref: string,
+  download?: boolean | string,
+): boolean | string | undefined {
+  if (!download) {
+    return download;
+  }
+
+  if (typeof download === "string") {
+    return download;
+  }
+
+  if (resolvedHref.startsWith("blob:")) {
+    return assetBaseName(originalHref) ?? true;
+  }
+
+  return download;
+}
 
 /** Original list item before any preview-scoped compound overrides. */
 const ToolListItemBase = ToolList.Item;
@@ -201,6 +221,15 @@ function createPreviewComponents(directory: FileSystemDirectoryHandle) {
   });
 
   function PreviewLinkButtonRoot(props: LinkButtonProps) {
+    const itemElements = Children.toArray(props.children).filter(
+      (child): child is ReactElement<LinkButtonItemProps> =>
+        isValidElement<LinkButtonItemProps>(child) &&
+        (child.type === LinkButton.Item || child.type === PreviewLinkButtonItem),
+    );
+    const hrefs = itemElements.map((child) => child.props.href ?? "");
+    const resolvedHrefs = useResolvedFileHrefs(directory, hrefs);
+    let itemIndex = 0;
+
     const children = Children.map(props.children, (child) => {
       if (!isValidElement<LinkButtonItemProps>(child)) {
         return child;
@@ -210,13 +239,21 @@ function createPreviewComponents(directory: FileSystemDirectoryHandle) {
         return child;
       }
 
-      const href = child.props.href?.trim() || "#";
+      const originalHref = child.props.href ?? "";
+      const href = resolvedHrefs[itemIndex] ?? (originalHref.trim() || "#");
+      const download = resolvePreviewDownload(
+        originalHref,
+        href,
+        child.props.download,
+      );
+      itemIndex += 1;
+
       // LinkButton filters children by `node.type === LinkButtonItem`; MDX passes
       // PreviewLinkButtonItem, so normalize to the library component.
       return (
         <LinkButton.Item
           key={child.key}
-          download={child.props.download}
+          download={download}
           external={child.props.external}
           href={href}
         >

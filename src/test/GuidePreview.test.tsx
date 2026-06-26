@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { GuidePreview } from "../components/GuidePreview";
 import { blankGuideMdx } from "../lib/templates/blankGuideMdx";
-import { FakeFileHandle, readyDirectory } from "./fakeFs";
+import { FakeFileHandle, FakeDirectoryHandle, readyDirectory } from "./fakeFs";
 
 describe("GuidePreview", () => {
   it("renders tool list thumbnails without recursive render failure", async () => {
@@ -142,6 +142,9 @@ describe("GuidePreview", () => {
         </GuideStep.Bullets>`,
     );
     const directory = readyDirectory(source);
+    const files = new FakeDirectoryHandle("files");
+    files.files.set("model.stl", new FakeFileHandle("model.stl", "fake-stl"));
+    directory.directories.set("files", files);
 
     render(
       <GuidePreview directory={directory.asDirectoryHandle()} source={source} />,
@@ -149,9 +152,10 @@ describe("GuidePreview", () => {
 
     await waitFor(
       () => {
-        expect(
-          screen.getByRole("link", { name: "Download STL" }),
-        ).toBeInTheDocument();
+        const link = screen.getByRole("link", { name: "Download STL" });
+        expect(link).toBeInTheDocument();
+        expect(link.getAttribute("href")).toMatch(/^blob:/);
+        expect(link.getAttribute("download")).toBe("model.stl");
       },
       { timeout: 3000 },
     );

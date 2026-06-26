@@ -79,7 +79,7 @@ describe("GuidePreview", () => {
     await waitFor(
       () => {
         const thumbnails = container.querySelectorAll(
-          "button img.object-cover.size-16, button img.object-cover.sm\\:size-20",
+          "button .aspect-\\[4\\/3\\] img, button .w-16 img",
         );
         expect(thumbnails.length).toBeGreaterThanOrEqual(2);
         for (const thumbnail of thumbnails) {

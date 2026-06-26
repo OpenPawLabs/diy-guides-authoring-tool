@@ -135,6 +135,8 @@ function createPreviewComponents(directory: FileSystemDirectoryHandle) {
         <MediaFigureThumbnail
           src={resolvedSrc}
           type={props.type}
+          annotations={props.annotations}
+          displayRegion={props.displayRegion}
           className={props.className}
         />
       );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button, Modal, cn } from "@heroui/react";
 import {
   COLORS,
@@ -49,7 +49,6 @@ export function AnnotationEditorModal({
   const [tool, setTool] = useState<AnnotationTool>("select");
   const [color, setColor] = useState<GuideColor>("RED");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showRerenderDiv, setShowRerenderDiv] = useState<boolean>(false);
 
   const selected = annotations.find((annotation) => annotation.id === selectedId);
   const isPoint = selected != null && (selected.type ?? "point") === "point";
@@ -70,20 +69,6 @@ export function AnnotationEditorModal({
       annotation.color = next;
     });
   };
-
-  // 200ms after the modal is opened opened display a 1px div to force css recalculation to display the image with the proper display region.
-  // (on initial load the display region displays slightly cropped and smaller than it should be, so we force a rerender)
-  // yeah its hacky, but because of css fuckery its the easiest way to do this and idgaf
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        setShowRerenderDiv(true);
-      }, 200);
-    } else if (!isOpen && showRerenderDiv) {
-      setShowRerenderDiv(false);
-    }
-  }, [isOpen, showRerenderDiv]);
-  
 
   return (
     <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -138,13 +123,12 @@ export function AnnotationEditorModal({
                 </div>
               </div>
 
-              {showRerenderDiv && (<div style={{ height: "1px" }} />) }
-
               <div className="min-h-0 w-full flex-1" style={{ containerType: "size" }}>
                 <MediaFigure
                   className="m-0 flex h-full w-full items-center justify-center gap-0 [&>div]:h-auto [&>div]:w-[min(100cqw,calc(100cqh*4/3))]"
                   src={src}
                   displayRegion={displayRegion}
+                  layoutSettleKey={isOpen}
                   annotations={annotations}
                   annotationEditing={{
                     tool,

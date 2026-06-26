@@ -78,12 +78,14 @@ describe("AnnotationEditorModal", () => {
     const user = userEvent.setup();
     render(<Harness />);
 
-    expect(screen.queryByLabelText("Tooltip")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Tooltip")).toBeDisabled();
 
+    await user.click(screen.getByRole("button", { name: "Point" }));
     firePointer("pointerdown", canvas(), 200, 150);
     firePointer("pointerup", canvas());
 
     expect(screen.getByLabelText("Label")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tooltip")).toBeEnabled();
     const tooltip = screen.getByLabelText("Tooltip");
     await user.type(tooltip, "Battery");
 
@@ -100,6 +102,7 @@ describe("AnnotationEditorModal", () => {
     const user = userEvent.setup();
     render(<Harness />);
 
+    await user.click(screen.getByRole("button", { name: "Point" }));
     firePointer("pointerdown", canvas(), 200, 150);
     firePointer("pointerup", canvas());
     await user.type(screen.getByLabelText("Tooltip"), "Clip");
@@ -107,6 +110,7 @@ describe("AnnotationEditorModal", () => {
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
     expect(screen.queryByRole("img", { name: "Clip" })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Tooltip")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Tooltip")).toBeDisabled();
+    expect(screen.getByLabelText("Tooltip")).toHaveValue("");
   });
 });

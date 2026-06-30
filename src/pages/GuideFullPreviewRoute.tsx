@@ -15,8 +15,6 @@ export function GuideFullPreviewRoute() {
 
   useEffect(() => {
     if (state.status !== "ready") {
-      setSavedSource(null);
-      setLoadError(null);
       return;
     }
 

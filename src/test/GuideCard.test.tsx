@@ -57,10 +57,10 @@ describe("GuideCard", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "Full preview (saved) of Tracker Assembly",
+        name: "Full preview of Tracker Assembly",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Unsaved edits not shown")).toBeInTheDocument();
+    expect(screen.getByText("Note: Unsaved edits not shown")).toBeInTheDocument();
   });
 
   it("falls back to the folder name when there is no title", () => {

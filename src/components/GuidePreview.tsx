@@ -221,16 +221,16 @@ function createPreviewComponents(directory: FileSystemDirectoryHandle) {
   });
 
   function PreviewLinkButtonRoot(props: LinkButtonProps) {
-    const itemElements = Children.toArray(props.children).filter(
+    const childArray = Children.toArray(props.children);
+    const itemElements = childArray.filter(
       (child): child is ReactElement<LinkButtonItemProps> =>
         isValidElement<LinkButtonItemProps>(child) &&
         (child.type === LinkButton.Item || child.type === PreviewLinkButtonItem),
     );
     const hrefs = itemElements.map((child) => child.props.href ?? "");
     const resolvedHrefs = useResolvedFileHrefs(directory, hrefs);
-    let itemIndex = 0;
 
-    const children = Children.map(props.children, (child) => {
+    const children = childArray.map((child) => {
       if (!isValidElement<LinkButtonItemProps>(child)) {
         return child;
       }
@@ -239,6 +239,7 @@ function createPreviewComponents(directory: FileSystemDirectoryHandle) {
         return child;
       }
 
+      const itemIndex = itemElements.indexOf(child);
       const originalHref = child.props.href ?? "";
       const href = resolvedHrefs[itemIndex] ?? (originalHref.trim() || "#");
       const download = resolvePreviewDownload(
@@ -246,7 +247,6 @@ function createPreviewComponents(directory: FileSystemDirectoryHandle) {
         href,
         child.props.download,
       );
-      itemIndex += 1;
 
       // LinkButton filters children by `node.type === LinkButtonItem`; MDX passes
       // PreviewLinkButtonItem, so normalize to the library component.

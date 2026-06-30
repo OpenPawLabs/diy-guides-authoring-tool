@@ -23,3 +23,23 @@ if (!globalThis.ResizeObserver) {
     disconnect() {}
   };
 }
+
+if (!globalThis.IntersectionObserver) {
+  globalThis.IntersectionObserver = class {
+    root = null;
+    rootMargin = "";
+    scrollMargin = "";
+    thresholds = [];
+
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  };
+}
+
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}

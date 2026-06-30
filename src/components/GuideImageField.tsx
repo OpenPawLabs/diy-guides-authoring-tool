@@ -1,5 +1,5 @@
 import { cn } from "@heroui/react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useResolvedImageSrc } from "../hooks/useResolvedImageSrc";
 import { writeImageFile } from "../lib/fs/guideFiles";
 import { isImageFile, THUMBNAIL_FILE_ACCEPT } from "../lib/mediaTypes";
@@ -22,6 +22,38 @@ const sizeClasses: Record<NonNullable<GuideImageFieldProps["size"]>, string> = {
   sm: "size-14",
   hero: "h-32 w-auto aspect-[4/3]",
 };
+
+const dropOverClass =
+  "border-accent text-accent ring-2 ring-accent ring-offset-2 ring-offset-background";
+
+function useImageFileDropTarget(onDropFile: (file: File) => void) {
+  const [isDropOver, setIsDropOver] = useState(false);
+
+  return {
+    isDropOver,
+    dropProps: {
+      onDragOver: (event: React.DragEvent) => {
+        if (!event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        setIsDropOver(true);
+      },
+      onDragLeave: (event: React.DragEvent) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          setIsDropOver(false);
+        }
+      },
+      onDrop: (event: React.DragEvent) => {
+        event.preventDefault();
+        setIsDropOver(false);
+        const file = event.dataTransfer.files[0];
+        if (file) {
+          onDropFile(file);
+        }
+      },
+    },
+  };
+}
 
 /**
  * Upload-only image control for guide assets. Writes into the guide's `images/`
@@ -58,6 +90,10 @@ export function GuideImageField({
     }
   };
 
+  const dropTarget = useImageFileDropTarget((file) => {
+    void handleFile(file);
+  });
+
   return (
     <div>
       <span className={labelClass}>{label}</span>
@@ -66,30 +102,43 @@ export function GuideImageField({
           <button
             type="button"
             onClick={openPicker}
+            {...dropTarget.dropProps}
             className={cn(
               "group relative shrink-0 overflow-hidden rounded-md border border-default-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
               previewClass,
+              dropTarget.isDropOver && dropOverClass,
             )}
             aria-label={`Replace ${label.toLowerCase()}`}
           >
             <img src={previewSrc} alt="" className="size-full object-cover" />
-            <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-medium text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-              Replace
+            <span
+              className={cn(
+                "absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-medium text-white transition",
+                dropTarget.isDropOver
+                  ? "opacity-100"
+                  : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
+              )}
+            >
+              {dropTarget.isDropOver ? "Drop" : "Replace"}
             </span>
           </button>
         ) : (
           <button
             type="button"
             onClick={openPicker}
+            {...dropTarget.dropProps}
             className={cn(
               "flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border-2 border-dashed border-default-300 bg-default-50 text-default-500 transition",
               "hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
               previewClass,
+              dropTarget.isDropOver && dropOverClass,
             )}
             aria-label={`Upload ${label.toLowerCase()}`}
           >
             <span className="text-lg leading-none">+</span>
-            <span className="text-[10px] font-medium">Upload</span>
+            <span className="text-[10px] font-medium">
+              {dropTarget.isDropOver ? "Drop" : "Upload"}
+            </span>
           </button>
         )}
         {src && (

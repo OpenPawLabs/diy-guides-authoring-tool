@@ -142,6 +142,7 @@ export function GuideStepEditor({
     activeIndex,
     onSelectImage: setActiveMediaIndex,
     onAddImage: () => fileInputRef.current?.click(),
+    onAddMediaFiles: (files) => void handleAddFiles(files),
     ...(canEditImageMedia
       ? {
           onEditAnnotations: (index: number) => setAnnotatingIndex(index),

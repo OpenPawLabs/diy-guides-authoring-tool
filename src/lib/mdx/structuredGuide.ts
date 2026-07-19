@@ -835,7 +835,7 @@ function serializeFigure(item: StepMediaDraft): string {
   }
 
   if (hasRegion) {
-    const round = (value: number) => Math.round(value);
+    const round = (value: number) => Math.round(value * 100) / 100;
     const { x, y, width } = item.displayRegion!;
     lines.push(
       `            displayRegion={{ x: ${round(x)}, y: ${round(y)}, width: ${round(width)} }}`,

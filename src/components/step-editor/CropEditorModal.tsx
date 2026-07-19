@@ -5,7 +5,7 @@ interface CropEditorModalProps {
   isOpen: boolean;
   /** Displayable source for the image being cropped. */
   src: string;
-  /** Current 4:3 region in source pixels, or undefined for the default center crop. */
+  /** Current 4:3 region in source percentages, or undefined for the default center crop. */
   region?: MediaDisplayRegion;
   onClose: () => void;
   /** Set a new region, or `undefined` to fall back to the center crop. */
@@ -14,7 +14,7 @@ interface CropEditorModalProps {
 
 /**
  * Modal chrome around the library's `MediaCropEditor`. The editor owns all
- * source-pixel geometry and reports the chosen 4:3 region; this modal adds the
+ * source-percentage geometry and reports the chosen 4:3 region; this modal adds the
  * explanation, a "reset to center crop" action, and persistence. A `MediaFigure`
  * with no `displayRegion` center-crops a non-4:3 source, so clearing the region
  * is the documented way back to the default.

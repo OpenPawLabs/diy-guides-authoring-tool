@@ -303,11 +303,11 @@ ${blankGuideMdx}
     }
 
     parsed.draft.steps[0].media = [
-      { id: "m1", src: "./images/one.jpg", displayRegion: { x: 320, y: 90, width: 640 } },
+      { id: "m1", src: "./images/one.jpg", displayRegion: { x: 25, y: 12.5, width: 50 } },
     ];
 
     const source = serializeGuideLayout(parsed.draft);
-    expect(source).toContain("displayRegion={{ x: 320, y: 90, width: 640 }}");
+    expect(source).toContain("displayRegion={{ x: 25, y: 12.5, width: 50 }}");
     await expect(compileGuideMdx(source)).resolves.toEqual({
       Content: expect.any(Function),
     });
@@ -318,9 +318,9 @@ ${blankGuideMdx}
       return;
     }
     expect(reparsed.draft.steps[0].media[0].displayRegion).toEqual({
-      x: 320,
-      y: 90,
-      width: 640,
+      x: 25,
+      y: 12.5,
+      width: 50,
     });
   });
 
@@ -335,13 +335,13 @@ ${blankGuideMdx}
       {
         id: "m1",
         src: "./images/one.jpg",
-        displayRegion: { x: 10, y: 20, width: 800 },
+        displayRegion: { x: 10, y: 20, width: 50 },
         annotations: [{ id: "a1", type: "point", x: 50, y: 50, label: 1 }],
       },
     ];
 
     const source = serializeGuideLayout(parsed.draft);
-    expect(source).toContain("displayRegion={{ x: 10, y: 20, width: 800 }}");
+    expect(source).toContain("displayRegion={{ x: 10, y: 20, width: 50 }}");
     expect(source).toContain("annotations={[");
 
     const reparsed = parseStructuredGuide(source);
@@ -350,12 +350,12 @@ ${blankGuideMdx}
       return;
     }
     expect(reparsed.draft.steps[0].media[0]).toMatchObject({
-      displayRegion: { x: 10, y: 20, width: 800 },
+      displayRegion: { x: 10, y: 20, width: 50 },
       annotations: [expect.objectContaining({ type: "point", x: 50, y: 50, label: 1 })],
     });
   });
 
-  it("rounds a fractional displayRegion to whole source pixels", () => {
+  it("rounds a fractional displayRegion to two decimals", () => {
     const parsed = parseStructuredGuide(blankGuideMdx);
     if (parsed.status !== "supported") {
       expect(parsed.status).toBe("supported");
@@ -363,11 +363,11 @@ ${blankGuideMdx}
     }
 
     parsed.draft.steps[0].media = [
-      { id: "m1", src: "./images/one.jpg", displayRegion: { x: 12.4, y: 8.6, width: 640.5 } },
+      { id: "m1", src: "./images/one.jpg", displayRegion: { x: 12.456, y: 8.644, width: 50.555 } },
     ];
 
     expect(serializeGuideLayout(parsed.draft)).toContain(
-      "displayRegion={{ x: 12, y: 9, width: 641 }}",
+      "displayRegion={{ x: 12.46, y: 8.64, width: 50.56 }}",
     );
   });
 
